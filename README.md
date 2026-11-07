@@ -44,6 +44,8 @@ HandBrakeCLI -i "film.mkv" -o "film.AV1.mkv" -f av_mkv -e svt_av1_10bit --encode
 - **Conservation** du HDR, du Dolby Vision (profil 8.1 → AV1 10.1) et du HDR10+ avec SVT-AV1 10 bits ; audio copié sans perte ; chapitres ; sous-titre « forcé » gardé par défaut.
 - **Vérification du résultat** : codec, durée identique, HDR / Dolby Vision présents, nombre de pistes, gain de place.
 - **Reprise** : un épisode déjà encodé est ignoré, on peut arrêter et reprendre une saison plus tard.
+- **Historique et statistiques** : chaque encodage est enregistré (tailles avant / après, gain, temps, vitesse, HDR conservé…), avec le total d'espace économisé, filtres et export CSV.
+- **Noms compatibles Radarr / Sonarr** (option) : `Mon Film (2026) {tmdb-123456} [FR+EN][MULTi VFF][WEBDL-2160p][EAC3 Atmos 5.1][DV HDR10][AV1]-GROUPE.mkv`, pour que Radarr reconnaisse la source, les langues et le HDR du fichier encodé.
 - Nom de sortie court automatique, à côté de la source : `Mon.Film.2026.MULTi.2160p.HDR.DV.WEB-DL.H265-GROUPE.mkv` → `Mon.Film.2026.AV1.mkv`, `Ma.Serie.S01E03.MULTi.1080p.WEB.H264-GROUPE.mkv` → `Ma.Serie.S01E03.AV1.mkv`.
 
 ## Installation
@@ -99,6 +101,27 @@ C'est tout.
 4. **▶ Lancer l'encodage.** Une confirmation résume ce qui va être fait. Pendant l'encodage : progression par fichier et globale (aussi dans la barre des tâches), le PC ne se met pas en veille. *Annuler* propose d'arrêter tout de suite ou après le fichier en cours.
 
 Le fichier encodé est créé **à côté de la source** ; le champ *Destination* permet de le changer pour le fichier sélectionné.
+
+### Nommage des fichiers (Radarr / Sonarr)
+
+Par défaut, le nom est court : `Mon.Film.2026.AV1.mkv`. Dans **⚙ Paramètres → Nommage des fichiers encodés**, choisissez **Format Radarr / Sonarr** pour utiliser la même syntaxe que leurs réglages de renommage, avec un aperçu en direct. Formats par défaut :
+
+```
+Films  : {Movie CleanTitle} {(Release Year)} {tmdb-{TmdbId}} - {edition-{Edition Tags}} {[MediaInfo AudioLanguages]}{[Custom Formats]}{[Quality Full]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoDynamicRangeType]}{[MediaInfo VideoCodec]}{-Release Group}
+Séries : {Series Title} - S{season:00}E{episode:00} {[MediaInfo AudioLanguages]}{[Custom Formats]}{[Quality Full]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoDynamicRangeType]}{[MediaInfo VideoCodec]}{-Release Group}
+```
+
+Comme dans Radarr, un bloc `{…}` disparaît (avec ses crochets, parenthèses ou tiret) quand l'information manque. D'où viennent les valeurs :
+
+| Jetons | Source |
+|---|---|
+| Titre, année, `{TmdbId}`, édition, `{Quality Full}` (WEBDL / WEBRip / Bluray / Remux), `{Custom Formats}` (MULTi, VFF, VOSTFR…), groupe | nom du fichier source (et du dossier Radarr pour `{tmdb-…}`) |
+| Langues audio / sous-titres, codec et canaux audio, résolution | analyse de la source (pistes gardées) |
+| `{MediaInfo VideoCodec}`, `{MediaInfo VideoDynamicRangeType}` | fichier **encodé** : `AV1`, et `DV HDR10` seulement si l'encodeur conserve le Dolby Vision |
+
+### Historique
+
+Le bouton **Historique** (en haut à droite) liste tous les encodages terminés, réussis ou non : date, fichier, encodeur et réglages, tailles avant / après, gain, temps d'encodage, images par seconde, HDR / Dolby Vision du fichier produit. En haut, les totaux sur la période filtrée : nombre d'encodages, **espace économisé**, réduction moyenne, temps total. Export en CSV pour Excel. Les fichiers déjà produits sont reconnus et ignorés quand on ré-ajoute un dossier.
 
 ## Mises à jour
 

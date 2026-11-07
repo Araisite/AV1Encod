@@ -1,7 +1,7 @@
 <Window x:Class="AV1Encod.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Paramètres" Width="700" Height="760" MinWidth="560" MinHeight="500"
+        Title="Paramètres" Width="780" Height="820" MinWidth="600" MinHeight="500"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app.ico"
         Background="{StaticResource BgBrush}" FontFamily="Segoe UI" FontSize="13">
     <Window.Resources>
@@ -67,6 +67,45 @@
                         </WrapPanel>
                         <CheckBox x:Name="AutoCheckChk" Content="Vérifier automatiquement au démarrage" Margin="0,12,0,0"
                                   Checked="AutoCheck_Changed" Unchecked="AutoCheck_Changed"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Nommage -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Nommage des fichiers encodés"/>
+                        <RadioButton x:Name="ShortModeRb" GroupName="Naming" Margin="0,0,0,6" Checked="NamingMode_Changed">
+                            <TextBlock TextWrapping="Wrap"><Run Text="Nom court" FontWeight="SemiBold"/><Run Text="  —  Mon.Film.2026.AV1.mkv, Ma.Serie.S01E03.AV1.mkv" Foreground="{StaticResource MutedBrush}"/></TextBlock>
+                        </RadioButton>
+                        <RadioButton x:Name="TemplateModeRb" GroupName="Naming" Checked="NamingMode_Changed">
+                            <TextBlock TextWrapping="Wrap"><Run Text="Format Radarr / Sonarr" FontWeight="SemiBold"/><Run Text="  —  source (WEBDL, Bluray…), langues, HDR et codec dans le nom, pour que Radarr / Sonarr les reconnaissent" Foreground="{StaticResource MutedBrush}"/></TextBlock>
+                        </RadioButton>
+
+                        <StackPanel x:Name="TemplatePanel" Margin="24,10,0,0">
+                            <TextBlock Text="Films" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="MovieTemplateBox" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" TextChanged="Template_Changed" GotFocus="Template_GotFocus"/>
+                            <TextBlock x:Name="MoviePreview" FontSize="12" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" Margin="2,4,0,10"/>
+                            <TextBlock Text="Séries (fichiers avec SxxEyy)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="SeriesTemplateBox" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" TextChanged="Template_Changed" GotFocus="Template_GotFocus"/>
+                            <TextBlock x:Name="SeriesPreview" FontSize="12" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" Margin="2,4,0,10"/>
+
+                            <Expander Header="Jetons disponibles (cliquer pour insérer)" Margin="0,2,0,8" Foreground="{StaticResource TextBrush}">
+                                <ItemsControl x:Name="TokensList" Margin="0,6,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Content="{Binding Token}" ToolTip="{Binding Help}" Tag="{Binding Token}" Click="InsertToken_Click"
+                                                    FontFamily="Consolas" FontSize="11" Padding="6,2" Margin="0,0,4,4"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Expander>
+                            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,8"
+                                       Text="Même syntaxe que Radarr / Sonarr : un bloc entre accolades disparaît si l'information manque, son texte autour (crochets, parenthèses, tiret) avec lui. Titre, année, source, édition, groupe et TMDb viennent du nom du fichier source (ou du dossier Radarr) ; langues, audio, HDR et codec, de l'analyse et de l'encodage."/>
+                            <Button Content="Rétablir les formats par défaut" HorizontalAlignment="Left" Click="ResetTemplates_Click"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

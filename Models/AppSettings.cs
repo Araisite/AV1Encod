@@ -21,6 +21,10 @@ public sealed class AppSettings
     public bool Overwrite { get; set; }
     public string ExtraArgs { get; set; } = "";
     public string SrcDir { get; set; } = "";
+    /// <summary>« short » = Titre.Année.AV1 ; « template » = formats Radarr / Sonarr ci-dessous.</summary>
+    public string NamingMode { get; set; } = "short";
+    public string MovieTemplate { get; set; } = Services.OutputNaming.DefaultMovieTemplate;
+    public string SeriesTemplate { get; set; } = Services.OutputNaming.DefaultSeriesTemplate;
     /// <summary>null = pas encore demandé : la question est posée au premier lancement (aucun accès réseau sans accord).</summary>
     public bool? CheckUpdatesAtStartup { get; set; }
 

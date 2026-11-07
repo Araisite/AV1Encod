@@ -23,7 +23,7 @@ public static class QueueScanner
     /// Dans un dossier, on ignore les samples et les fichiers déjà encodés par l'appli ; un fichier
     /// déposé explicitement est toujours pris.
     /// </summary>
-    public static ScanResult Expand(IEnumerable<string> paths)
+    public static ScanResult Expand(IEnumerable<string> paths, ISet<string>? knownOutputs = null)
     {
         var files = new List<string>();
         int samples = 0, outputs = 0;
@@ -40,7 +40,9 @@ public static class QueueScanner
                 var folder = Path.GetFileName(Path.GetDirectoryName(f)) ?? "";
                 if (Sample.IsMatch(name) || folder.Equals("sample", StringComparison.OrdinalIgnoreCase)
                     || folder.Equals("samples", StringComparison.OrdinalIgnoreCase)) { samples++; continue; }
-                if (OwnOutput.IsMatch(name)) { outputs++; continue; }
+                // sorties d'un passage précédent : nom court « .AV1 », format Radarr « [AV1] », ou connues de l'historique
+                if (OwnOutput.IsMatch(name) || name.Contains("[AV1]", StringComparison.OrdinalIgnoreCase) ||
+                    knownOutputs?.Contains(Path.GetFullPath(f)) == true) { outputs++; continue; }
                 files.Add(Path.GetFullPath(f));
             }
         }

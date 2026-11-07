@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using AV1Encod.Services;
 
@@ -32,9 +33,78 @@ public partial class SettingsWindow : Window
         SignatureText.Text = signer is null ? "Exécutable non signé"
             : "Signé par " + (System.Text.RegularExpressions.Regex.Match(signer, "CN=([^,]+)") is { Success: true } m ? m.Groups[1].Value.Trim('"') : signer);
         AutoCheckChk.IsChecked = settings.CheckUpdatesAtStartup == true;
+        MovieTemplateBox.Text = settings.MovieTemplate;
+        SeriesTemplateBox.Text = settings.SeriesTemplate;
+        TokensList.ItemsSource = OutputNaming.Tokens.Select(t => new { t.Token, t.Help }).ToList();
+        (settings.NamingMode == "template" ? TemplateModeRb : ShortModeRb).IsChecked = true;
+        TemplatePanel.IsEnabled = settings.NamingMode == "template";
         RefreshTools();
         if (knownRelease is not null) ShowRelease(knownRelease);
         _ready = true;
+        UpdateNamingPreview();
+    }
+
+    // ------------------------------------------------------------------ nommage
+
+    TextBox? _lastTemplateBox;
+
+    void NamingMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        _settings.NamingMode = TemplateModeRb.IsChecked == true ? "template" : "short";
+        TemplatePanel.IsEnabled = _settings.NamingMode == "template";
+        SaveNaming();
+    }
+
+    void Template_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (!_ready) return;
+        _settings.MovieTemplate = MovieTemplateBox.Text;
+        _settings.SeriesTemplate = SeriesTemplateBox.Text;
+        SaveNaming();
+    }
+
+    void SaveNaming()
+    {
+        _settings.Save();
+        _main.OnNamingChanged();
+        UpdateNamingPreview();
+    }
+
+    void Template_GotFocus(object sender, RoutedEventArgs e) => _lastTemplateBox = sender as TextBox;
+
+    void InsertToken_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string token }) return;
+        var box = _lastTemplateBox ?? MovieTemplateBox;
+        var pos = box.CaretIndex;
+        box.Text = box.Text.Insert(pos, token);
+        box.CaretIndex = pos + token.Length;
+        box.Focus();
+    }
+
+    void ResetTemplates_Click(object sender, RoutedEventArgs e)
+    {
+        MovieTemplateBox.Text = OutputNaming.DefaultMovieTemplate;
+        SeriesTemplateBox.Text = OutputNaming.DefaultSeriesTemplate;
+    }
+
+    /// <summary>Aperçu sur un fichier analysé de la file (sinon sur un exemple fictif).</summary>
+    void UpdateNamingPreview()
+    {
+        if (_main.CurrentEncoder is not { } enc) { MoviePreview.Text = SeriesPreview.Text = ""; return; }
+        MoviePreview.Text = Preview(MovieTemplateBox.Text, _main.NamingSample(false), enc, false);
+        SeriesPreview.Text = Preview(SeriesTemplateBox.Text, _main.NamingSample(true), enc, true);
+    }
+
+    string Preview(string template, QueueItem? sample, EncoderInfo enc, bool series)
+    {
+        var ctx = sample is not null ? _main.NamingContextFor(sample) : OutputNaming.Sample(enc, series);
+        var name = OutputNaming.Render(template, ctx, out var unknown);
+        var text = "→ " + (string.IsNullOrWhiteSpace(name) ? "(vide : le nom court sera utilisé)" : name + ".mkv");
+        if (sample is null) text += "   (exemple)";
+        if (unknown.Count > 0) text += "\n⚠ Jeton(s) inconnu(s) ignoré(s) : " + string.Join(", ", unknown.Distinct());
+        return text;
     }
 
     void RefreshTools()

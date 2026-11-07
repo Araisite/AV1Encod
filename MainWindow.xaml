@@ -25,8 +25,10 @@
             <DockPanel Margin="2,0,2,10">
                 <Image DockPanel.Dock="Left" Source="Assets/app.ico" Width="30" Height="30" Margin="0,0,10,0" VerticalAlignment="Center"/>
                 <TextBlock DockPanel.Dock="Left" Text="AV1 Encod" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
-                <Button DockPanel.Dock="Right" Content="⚙  Paramètres" Padding="12,5" Margin="18,0,0,0" Click="Settings_Click"
-                        ToolTip="Mises à jour, outils externes, à propos"/>
+                <Button DockPanel.Dock="Right" Content="⚙  Paramètres" Padding="12,5" Margin="8,0,0,0" Click="Settings_Click"
+                        ToolTip="Nommage des fichiers, mises à jour, outils externes, à propos"/>
+                <Button DockPanel.Dock="Right" Content="Historique" Padding="12,5" Margin="18,0,0,0" Click="History_Click"
+                        ToolTip="Tous les encodages terminés, avec les statistiques (espace gagné, temps, vitesse…)"/>
                 <TextBlock x:Name="ToolsText" Text="Détection des outils…" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"
                            TextAlignment="Right" TextTrimming="CharacterEllipsis" Margin="24,0,0,0"/>
             </DockPanel>

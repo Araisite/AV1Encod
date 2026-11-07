@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     StreamWriter? _log;
     string? _lastLogPath;
     QueueItem? _current;
+    double _lastAverageFps;
     int _currentIndex, _currentTotal;
 
     public MainWindow(string[] initialPaths)
@@ -268,6 +269,8 @@ public partial class MainWindow : Window
     void BannerNotes_Click(object sender, RoutedEventArgs e) => Updater.OpenUrl(_availableUpdate?.PageUrl ?? Updater.ReleasesUrl);
     void BannerLater_Click(object sender, RoutedEventArgs e) => UpdateBanner.Visibility = Visibility.Collapsed;
 
+    void History_Click(object sender, RoutedEventArgs e) => new HistoryWindow { Owner = this }.ShowDialog();
+
     void Settings_Click(object sender, RoutedEventArgs e)
     {
         new SettingsWindow(this, _settings, _availableUpdate) { Owner = this }.ShowDialog();
@@ -325,7 +328,7 @@ public partial class MainWindow : Window
         if (_busy) return;
         var list = paths.ToList();
         SetStatus("Recherche des vidéos…");
-        var scan = await Task.Run(() => QueueScanner.Expand(list));
+        var scan = await Task.Run(() => QueueScanner.Expand(list, History.SuccessfulOutputs()));
         var existing = new HashSet<string>(_queue.Select(q => q.SourcePath), StringComparer.OrdinalIgnoreCase);
         var added = scan.Files.Where(f => !existing.Contains(f)).Select(f => new QueueItem(f)).ToList();
         foreach (var a in added) _queue.Add(a);
@@ -351,29 +354,58 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Destination par défaut : à côté de la source, nom court + tag (AV1…). Si deux fichiers de la file
-    /// tomberaient sur le même nom court, on garde leur nom complet.
+    /// Destination par défaut, à côté de la source : nom court (« Titre.Année.AV1 ») ou format Radarr / Sonarr
+    /// (⚙ Paramètres). Si deux fichiers de la file tombent sur le même nom, le suivant est numéroté « (2) ».
     /// </summary>
     void AssignDestinations()
     {
-        if (!_ready || SelectedEncoder is not { } enc) return;
+        if (!_ready || SelectedEncoder is null) return;
         var autos = _queue.Where(q => q.DestAuto && q.Status is not (QueueStatus.Encoding or QueueStatus.Done)).ToList();
+        foreach (var a in autos) a.DestPath = DestinationFor(a, a.Source);
 
-        string Dest(QueueItem q, bool fullName)
+        foreach (var g in _queue.GroupBy(q => q.DestPath, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
         {
-            var dir = Path.GetDirectoryName(q.SourcePath) ?? "";
-            var b = Path.GetFileNameWithoutExtension(q.SourcePath);
-            var name = fullName ? $"{b}.{enc.Tag}" : OutputNaming.ShortName(b, enc.Tag);
-            var p = Path.Combine(dir, name + ".mkv");
-            return string.Equals(p, q.SourcePath, StringComparison.OrdinalIgnoreCase) ? Path.Combine(dir, name + ".reencode.mkv") : p;
+            var n = 1;
+            foreach (var c in g.Where(autos.Contains).Skip(g.Any(q => !autos.Contains(q)) ? 0 : 1))
+                c.DestPath = Path.Combine(Path.GetDirectoryName(c.DestPath)!, $"{Path.GetFileNameWithoutExtension(c.DestPath)} ({++n}).mkv");
         }
 
-        foreach (var a in autos) a.DestPath = Dest(a, false);
-        var clashing = _queue.GroupBy(q => q.DestPath, StringComparer.OrdinalIgnoreCase)
-                             .Where(g => g.Count() > 1).SelectMany(g => g).Where(autos.Contains).ToList();
-        foreach (var c in clashing) c.DestPath = Dest(c, true);
-
         if (Selected is { DestAuto: true } s) ShowDestination(s);
+    }
+
+    string DestinationFor(QueueItem q, SourceInfo? info)
+    {
+        var enc = SelectedEncoder!;
+        var dir = Path.GetDirectoryName(q.SourcePath) ?? "";
+        var baseName = Path.GetFileNameWithoutExtension(q.SourcePath);
+        var name = _settings.NamingMode == "template"
+            ? OutputNaming.FromTemplates(_settings.MovieTemplate, _settings.SeriesTemplate, NamingFor(q.SourcePath, info))
+            : OutputNaming.ShortName(baseName, enc.Tag);
+        if (string.IsNullOrWhiteSpace(name)) name = OutputNaming.ShortName(baseName, enc.Tag);
+        var p = Path.Combine(dir, name + ".mkv");
+        return string.Equals(p, q.SourcePath, StringComparison.OrdinalIgnoreCase) ? Path.Combine(dir, name + ".reencode.mkv") : p;
+    }
+
+    NamingContext NamingFor(string sourcePath, SourceInfo? info) => new()
+    {
+        SourcePath = sourcePath, Source = info, Encoder = SelectedEncoder!, AllAudio = _allAudio, AllSubs = _allSubs,
+    };
+
+    // ---- utilisé par ⚙ Paramètres → Nommage
+
+    internal EncoderInfo? CurrentEncoder => SelectedEncoder;
+
+    /// <summary>Fichier analysé servant d'exemple pour l'aperçu du nommage (film ou épisode).</summary>
+    internal QueueItem? NamingSample(bool series) =>
+        new[] { Selected }.Concat(_queue).FirstOrDefault(q => q?.Source is not null &&
+            ReleaseName.Parse(Path.GetFileNameWithoutExtension(q.SourcePath)).IsEpisode == series);
+
+    internal NamingContext NamingContextFor(QueueItem q) => NamingFor(q.SourcePath, q.Source);
+
+    internal void OnNamingChanged()
+    {
+        AssignDestinations();
+        UpdatePreview();
     }
 
     void ShowDestination(QueueItem? item)
@@ -554,6 +586,12 @@ public partial class MainWindow : Window
         DeepCheck = DeepChk.IsChecked == true,
         Overwrite = OverwriteChk.IsChecked == true,
         SelectTracks = (audio, subs) => SelectTracksFor(item, audio, subs),
+        // le nom au format Radarr dépend de l'analyse (langues, HDR…) : on le recalcule avant de vérifier la destination
+        ResolveDestination = info =>
+        {
+            if (item.DestAuto) item.DestPath = DestinationFor(item, info);
+            return item.DestPath;
+        },
     };
 
     /// <summary>
@@ -604,6 +642,7 @@ public partial class MainWindow : Window
                 if (cur == Selected) { UpdatePreview(); UpdateTracksSummary(); }
             }
             cur = null;
+            AssignDestinations(); // gère les noms identiques entre fichiers analysés
             SetIdle((prefix is null ? "" : prefix + "   ·   ") + "Analyse : " + Describe(items));
             return true;
         }
@@ -799,6 +838,7 @@ public partial class MainWindow : Window
         _outQ.Clear();
         _errQ.Clear();
         item.SetStatus(QueueStatus.Encoding, "Démarrage…");
+        _lastAverageFps = 0;
         item.Progress = 0;
         SetStatus($"{ItemPrefix()}démarrage de HandBrake (scan de la source)…");
         if (_currentIndex == 0) Taskbar.ProgressState = TaskbarItemProgressState.Indeterminate;
@@ -825,10 +865,23 @@ public partial class MainWindow : Window
         }
 
         var elapsed = Fmt.Dur(_itemWatch.Elapsed.TotalSeconds);
+        var entry = new HistoryEntry
+        {
+            Date = DateTime.Now, SourcePath = item.SourcePath, OutputPath = dst, Encoder = enc.Name, Preset = opts.Preset ?? "",
+            Quality = opts.Quality, SourceSize = item.Size, Duration = src.Duration, EncodeSeconds = _itemWatch.Elapsed.TotalSeconds,
+            // HandBrake n'annonce sa vitesse moyenne qu'après quelques secondes : sinon images ÷ temps
+            AverageFps = _lastAverageFps > 0 ? _lastAverageFps
+                       : _itemWatch.Elapsed.TotalSeconds > 0 ? src.Duration * src.Fps / _itemWatch.Elapsed.TotalSeconds : 0,
+            SourceSummary = src.Summary, AudioTracks = expect.Audio, SubtitleTracks = expect.Subtitles,
+            LogPath = item.LogPath,
+        };
+
         if (ct.IsCancellationRequested)
         {
             item.SetStatus(QueueStatus.Cancelled, "Annulé");
             item.Progress = 0;
+            entry.Result = "cancelled";
+            History.Append(entry);
             if (File.Exists(dst) &&
                 MessageBox.Show(this, $"Encodage annulé.\n\nSupprimer le fichier partiel ?\n{dst}\n\n(s'il est conservé, il sera considéré comme « déjà encodé »)",
                     AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
@@ -847,30 +900,36 @@ public partial class MainWindow : Window
             try { if (File.Exists(dst)) { File.Delete(dst); rep.Info("Fichier partiel supprimé"); } } catch { }
             item.SetStatus(QueueStatus.Failed, $"✖ Échec (code {exitCode})");
             item.Progress = 0;
+            entry.Result = "failed";
+            History.Append(entry);
             return QueueStatus.Failed;
         }
 
         item.Progress = 100;
         item.SetStatus(QueueStatus.Encoding, "Vérification…");
         SetStatus($"{ItemPrefix()}vérification du fichier encodé…");
-        await OutputVerifier.VerifyAsync(expect, _ffprobe, item.LogPath, rep);
+        entry.OutputHdr = await OutputVerifier.VerifyAsync(expect, _ffprobe, item.LogPath, rep);
         try
         {
-            var outSize = new FileInfo(dst).Length;
-            item.Result = $"{outSize / (double)item.Size - 1:+0%;-0%} · {Fmt.Size(outSize)}";
+            entry.OutputSize = new FileInfo(dst).Length;
+            item.Result = $"{entry.OutputSize / (double)item.Size - 1:+0%;-0%} · {Fmt.Size(entry.OutputSize)}";
         }
         catch { }
+        entry.Warnings = rep.Warnings;
 
         if (rep.Errors > 0)
         {
             rep.Warn("Le fichier produit semble incorrect : supprimez-le ou cochez « Écraser » pour le refaire");
             item.SetStatus(QueueStatus.Failed, "⚠ Sortie suspecte");
+            entry.Result = "suspect";
+            History.Append(entry);
             return QueueStatus.Failed;
         }
         item.SetStatus(QueueStatus.Done, rep.Warnings > 0 ? $"✔ Fait (⚠ {rep.Warnings})" : $"✔ Fait en {elapsed}");
+        entry.Result = rep.Warnings > 0 ? "warning" : "ok";
+        History.Append(entry);
         return QueueStatus.Done;
     }
-
     string ItemPrefix() =>
         (_currentTotal > 1 ? $"Fichier {_currentIndex + 1}/{_currentTotal} · " : "") + (_stopAfterCurrent ? "(arrêt après ce fichier) · " : "");
 
@@ -911,6 +970,7 @@ public partial class MainWindow : Window
 
         var text = $"{ItemPrefix()}{pct:N1} %";
         if (int.Parse(m.Groups[2].Value) > 1) text += $" (passe {m.Groups[1].Value}/{m.Groups[2].Value})";
+        if (m.Groups[5].Success) _lastAverageFps = double.Parse(m.Groups[5].Value, Fmt.Inv);
         if (m.Groups[4].Success)
             text += $"   ·   {m.Groups[4].Value} i/s (moy. {m.Groups[5].Value})   ·   reste {m.Groups[6].Value}h{m.Groups[7].Value}m{m.Groups[8].Value}s";
         text += $"   ·   écoulé {Fmt.Dur(_itemWatch.Elapsed.TotalSeconds)}";
@@ -979,6 +1039,7 @@ public partial class MainWindow : Window
                   (byPosition > 0 ? $" — {byPosition} par position (pistes différentes du modèle : vérifiez-les)" : "");
         }
         SetIdle(msg + ".");
+        AssignDestinations(); // les langues gardées font partie du nom au format Radarr
         UpdatePreview();
         UpdateTracksSummary();
         SaveSettings();

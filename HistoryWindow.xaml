@@ -1,0 +1,162 @@
+<Window x:Class="AV1Encod.HistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Historique des encodages" Width="1200" Height="760" MinWidth="900" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResizeWithGrip" Icon="Assets/app.ico"
+        Background="{StaticResource BgBrush}" FontFamily="Segoe UI" FontSize="13">
+    <Window.Resources>
+        <Style x:Key="StatCard" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Setter Property="Margin" Value="0,0,12,0"/>
+            <Setter Property="Padding" Value="16,12"/>
+        </Style>
+        <Style x:Key="StatValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        </Style>
+        <Style x:Key="StatLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style x:Key="Right" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20,16,20,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="Historique des encodages" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" Margin="2,0,0,12"/>
+
+        <!-- Statistiques (sur la sélection filtrée) -->
+        <UniformGrid Grid.Row="1" Rows="1" Margin="0,0,-12,12">
+            <Border Style="{StaticResource StatCard}">
+                <StackPanel>
+                    <TextBlock x:Name="StatCount" Style="{StaticResource StatValue}" Text="0"/>
+                    <TextBlock x:Name="StatCountLabel" Style="{StaticResource StatLabel}" Text="encodages réussis"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource StatCard}">
+                <StackPanel>
+                    <TextBlock x:Name="StatSaved" Style="{StaticResource StatValue}" Text="0" Foreground="#16803D"/>
+                    <TextBlock x:Name="StatSavedLabel" Style="{StaticResource StatLabel}" Text="économisés"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource StatCard}">
+                <StackPanel>
+                    <TextBlock x:Name="StatRatio" Style="{StaticResource StatValue}" Text="—"/>
+                    <TextBlock x:Name="StatRatioLabel" Style="{StaticResource StatLabel}" Text="réduction moyenne"/>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource StatCard}">
+                <StackPanel>
+                    <TextBlock x:Name="StatTime" Style="{StaticResource StatValue}" Text="0 h"/>
+                    <TextBlock x:Name="StatTimeLabel" Style="{StaticResource StatLabel}" Text="d'encodage"/>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- Filtres -->
+        <DockPanel Grid.Row="2" Margin="0,0,0,8">
+            <ComboBox x:Name="PeriodBox" DockPanel.Dock="Right" Width="170" SelectionChanged="Filter_Changed" Margin="10,0,0,0">
+                <ComboBoxItem Content="Toute la période" IsSelected="True"/>
+                <ComboBoxItem Content="7 derniers jours"/>
+                <ComboBoxItem Content="30 derniers jours"/>
+                <ComboBoxItem Content="Cette année"/>
+            </ComboBox>
+            <ComboBox x:Name="ResultBox" DockPanel.Dock="Right" Width="150" SelectionChanged="Filter_Changed" Margin="10,0,0,0">
+                <ComboBoxItem Content="Tous les résultats" IsSelected="True"/>
+                <ComboBoxItem Content="Réussis"/>
+                <ComboBoxItem Content="Échecs / annulés"/>
+            </ComboBox>
+            <TextBox x:Name="SearchBox" TextChanged="Filter_Changed" ToolTip="Filtrer par nom de fichier ou encodeur"/>
+        </DockPanel>
+        <TextBlock Grid.Row="2" x:Name="SearchHint" Text="  Rechercher un fichier, un encodeur…" Foreground="#9CA3AF" IsHitTestVisible="False"
+                   VerticalAlignment="Center" Margin="4,0,0,8"/>
+
+        <!-- Tableau -->
+        <DataGrid Grid.Row="3" x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="#F3F4F6" BorderBrush="{StaticResource BorderBrush}" Background="White" RowHeaderWidth="0"
+                  SelectionMode="Extended" CanUserResizeRows="False" MouseDoubleClick="Grid_MouseDoubleClick" SelectionChanged="Grid_SelectionChanged">
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Padding" Value="8,6"/>
+                    <Setter Property="Background" Value="#F9FAFB"/>
+                    <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="Padding" Value="8,5"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}">
+                                    <ContentPresenter VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#DBEAFE"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.CellStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Date" Binding="{Binding DateText}" SortMemberPath="Entry.Date" Width="128" SortDirection="Descending"/>
+                <DataGridTemplateColumn Header="Fichier encodé" Width="*" SortMemberPath="OutputName">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel ToolTip="{Binding Tooltip}">
+                                <TextBlock Text="{Binding OutputName}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Entry.SourceSummary}" FontSize="11" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Encodeur" Binding="{Binding EncoderText}" SortMemberPath="EncoderText" Width="150"/>
+                <DataGridTextColumn Header="Durée" Binding="{Binding DurationText}" SortMemberPath="Entry.Duration" Width="70"/>
+                <DataGridTextColumn Header="Source" Binding="{Binding SourceSizeText}" SortMemberPath="Entry.SourceSize" Width="80" ElementStyle="{StaticResource Right}"/>
+                <DataGridTextColumn Header="Encodé" Binding="{Binding OutputSizeText}" SortMemberPath="Entry.OutputSize" Width="80" ElementStyle="{StaticResource Right}"/>
+                <DataGridTextColumn Header="Gain" Binding="{Binding GainText}" SortMemberPath="Gain" Width="62" ElementStyle="{StaticResource Right}"/>
+                <DataGridTextColumn Header="Temps" Binding="{Binding TimeText}" SortMemberPath="Entry.EncodeSeconds" Width="70"/>
+                <DataGridTextColumn Header="i/s" Binding="{Binding FpsText}" SortMemberPath="Entry.AverageFps" Width="50" ElementStyle="{StaticResource Right}"/>
+                <DataGridTextColumn Header="HDR" Binding="{Binding Entry.OutputHdr}" Width="130"/>
+                <DataGridTemplateColumn Header="Résultat" Width="120" SortMemberPath="Entry.Result">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ResultText}" Foreground="{Binding ResultBrush}" FontWeight="SemiBold"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock Grid.Row="3" x:Name="EmptyText" Text="Aucun encodage pour le moment : ils apparaîtront ici dès le premier terminé."
+                   Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+
+        <!-- Actions -->
+        <DockPanel Grid.Row="4" Margin="0,12,0,0">
+            <Button DockPanel.Dock="Right" Content="Fermer" IsCancel="True" MinWidth="96" Click="Close_Click"/>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="OpenBtn" Content="Ouvrir le dossier" Margin="0,0,8,0" Click="Open_Click"/>
+                <Button x:Name="LogBtn" Content="Journal" Margin="0,0,8,0" Click="Log_Click"/>
+                <Button Content="Exporter en CSV…" Margin="0,0,8,0" Click="Export_Click"/>
+                <Button x:Name="DeleteBtn" Content="Supprimer de l'historique" Margin="0,0,8,0" Click="Delete_Click"/>
+                <Button Content="Tout effacer" Click="Clear_Click"/>
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

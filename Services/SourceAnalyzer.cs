@@ -12,6 +12,10 @@ public sealed class SourceInfo
     public bool IsHdr { get; init; }
     public bool HasDolbyVision { get; init; }
     public bool HasHdr10Plus { get; init; }
+    public int DvProfile { get; init; }
+    public double Fps { get; init; }
+    public int Width { get; init; }
+    public int Height { get; init; }
     public int AudioCount { get; init; }
     public int SubtitleCount { get; init; }
     public int SupportedSubtitleCount { get; init; }
@@ -39,6 +43,11 @@ public sealed class AnalysisRequest
     public bool DeepCheck { get; init; }
     /// <summary>false = une destination déjà présente est signalée comme « déjà encodée » (le fichier sera ignoré).</summary>
     public bool Overwrite { get; init; }
+    /// <summary>
+    /// Appelé une fois la source analysée pour (re)calculer la destination (le nom au format Radarr dépend des pistes, du HDR…).
+    /// Sans lui, <see cref="DestPath"/> est utilisé tel quel.
+    /// </summary>
+    public Func<SourceInfo, string>? ResolveDestination { get; init; }
     /// <summary>Appelé avec les pistes trouvées pour y appliquer la sélection mémorisée (audio, sous-titres).</summary>
     public Action<IReadOnlyList<TrackInfo>, IReadOnlyList<TrackInfo>>? SelectTracks { get; init; }
 }
@@ -284,7 +293,8 @@ public static class SourceAnalyzer
         info = new SourceInfo
         {
             Path = fi.FullName, Size = fi.Length, Duration = dur, Transfer = trc, IsHdr = isHdr,
-            HasDolbyVision = dovi is not null, HasHdr10Plus = hdr10Plus, AudioCount = auds.Count,
+            HasDolbyVision = dovi is not null, HasHdr10Plus = hdr10Plus, DvProfile = dvProfile, Fps = fps, Width = width, Height = height,
+            AudioCount = auds.Count,
             SubtitleCount = subs.Count, SupportedSubtitleCount = supported, ChapterCount = chapters, DefaultSubIndex = defSub,
             AudioTracks = audioTracks, SubtitleTracks = subTracks,
             Summary = BuildSummary((v.S("codec_name") ?? "?").ToUpperInvariant(), width, height, hdrKind,
@@ -313,7 +323,7 @@ public static class SourceAnalyzer
             }
         }
 
-        destExists = CheckDestination(req.DestPath, fi, req.Overwrite, rep);
+        destExists = CheckDestination(req.ResolveDestination?.Invoke(info) ?? req.DestPath, fi, req.Overwrite, rep);
         return Finish();
     }
 
