@@ -1,6 +1,11 @@
 # Publier une version :  git tag v1.2.0  &&  git push origin v1.2.0
-# → construit AV1Encod.exe (autonome) et crée la Release GitHub avec l'exe en pièce jointe.
+# → construit AV1Encod.exe (autonome), le fait signer par SignPath si c'est configuré,
+#   et crée la Release GitHub avec l'exe en pièce jointe.
 # Les applis déjà installées la proposent ensuite d'elles-mêmes (⚙ Paramètres → Mises à jour).
+#
+# Signature (voir docs/signpath.md) : active dès que le secret SIGNPATH_API_TOKEN existe.
+# Variables du dépôt (Settings → Secrets and variables → Actions → Variables) :
+#   SIGNPATH_ORGANIZATION_ID (obligatoire), SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG, SIGNPATH_ARTIFACT_CONFIG_SLUG
 name: Release
 
 on:
@@ -9,10 +14,13 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      SIGNING_ENABLED: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -24,10 +32,48 @@ jobs:
         shell: pwsh
         run: ./build.ps1 -Version ('${{ github.ref_name }}'.TrimStart('v'))
 
+      - name: Upload unsigned exe (for SignPath)
+        id: upload-unsigned
+        if: env.SIGNING_ENABLED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: AV1Encod-unsigned
+          path: dist/AV1Encod.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        if: env.SIGNING_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'AV1Encod' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIG_SLUG || 'initial' }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          # chaque signature doit être approuvée à la main sur signpath.io : on laisse 1 h pour le faire
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+
+      - name: Use signed exe
+        if: env.SIGNING_ENABLED == 'true'
+        shell: pwsh
+        run: |
+          Copy-Item signed/AV1Encod.exe dist/AV1Encod.exe -Force
+          $sig = Get-AuthenticodeSignature dist/AV1Encod.exe
+          if ($sig.Status -ne 'Valid') { throw "Signature invalide : $($sig.Status) $($sig.StatusMessage)" }
+          "Signé par : $($sig.SignerCertificate.Subject)"
+
       - name: Publish release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          $notes = if ($env:SIGNING_ENABLED -eq 'true') {
+            "Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org) — [Code signing policy](https://github.com/${{ github.repository }}#code-signing-policy)"
+          } else {
+            "Exécutable non signé : Windows peut afficher « Windows a protégé votre ordinateur » → *Informations complémentaires* → *Exécuter quand même*."
+          }
           gh release create '${{ github.ref_name }}' dist/AV1Encod.exe `
-            --title 'AV1 Encod ${{ github.ref_name }}' --generate-notes
+            --title 'AV1 Encod ${{ github.ref_name }}' --notes $notes --generate-notes

@@ -17,6 +17,9 @@
     <Authors>Araisite</Authors>
     <Copyright>© 2026 Araisite</Copyright>
     <RepositoryUrl>https://github.com/Araisite/AV1Encod</RepositoryUrl>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <!-- version produit = « 1.2.0 » tout court (SignPath exige la même valeur sur tous les fichiers signés d'une version) -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

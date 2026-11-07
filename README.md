@@ -7,7 +7,8 @@
 <p align="center">
   Réencodez vos films et vos séries en <b>AV1</b> en quelques clics, sans perdre le HDR, le Dolby Vision, les pistes audio ni les sous-titres.<br>
   <a href="https://github.com/Araisite/AV1Encod/releases/latest/download/AV1Encod.exe"><b>⬇ Télécharger AV1Encod.exe</b></a>
-  · Windows 10 / 11 (64 bits) · gratuit
+  · Windows 10 / 11 (64 bits) · gratuit et libre (GPL-3.0)
+  · <a href="#code-signing-policy">Code signing policy</a>
 </p>
 
 <p align="center"><img src="docs/main.png" width="820" alt="Fenêtre principale d'AV1 Encod"></p>
@@ -21,6 +22,8 @@
 - [Utilisation](#utilisation)
 - [Mises à jour](#mises-à-jour)
 - [Questions fréquentes](#questions-fréquentes)
+- [Confidentialité](#confidentialité)
+- [Code signing policy](#code-signing-policy)
 - [Pour les développeurs](#pour-les-développeurs)
 - [Licence](#licence)
 
@@ -73,7 +76,14 @@ HandBrakeCLI -i "film.mkv" -o "film.AV1.mkv" -f av_mkv -e svt_av1_10bit --encode
    Ou téléchargez [HandBrake CLI](https://handbrake.fr/downloads2.php) et [FFmpeg](https://www.gyan.dev/ffmpeg/builds/), puis placez `HandBrakeCLI.exe`, `ffprobe.exe` et `ffmpeg.exe` dans le même dossier que `AV1Encod.exe` (ou dans un sous-dossier `tools`).
    </details>
 
-C'est tout. **Désinstaller** = supprimer `AV1Encod.exe` et le dossier `%APPDATA%\AV1Encod` (réglages et journaux).
+4. **Mises à jour automatiques ?** AV1 Encod vous demande ensuite s'il peut vérifier les nouvelles versions à chaque démarrage. Rien n'est envoyé sur internet sans votre accord (voir [Confidentialité](#confidentialité)).
+
+C'est tout.
+
+**Désinstaller** :
+
+1. supprimer `AV1Encod.exe` et le dossier `%APPDATA%\AV1Encod` (réglages et journaux) ;
+2. si vous n'en avez plus besoin, désinstaller aussi les outils : `winget uninstall HandBrake.HandBrake.CLI` et `winget uninstall Gyan.FFmpeg`.
 
 ## Utilisation
 
@@ -92,7 +102,9 @@ Le fichier encodé est créé **à côté de la source** ; le champ *Destination
 
 ## Mises à jour
 
-Au démarrage, AV1 Encod vérifie s'il existe une nouvelle version et affiche un bandeau **Mettre à jour** : l'application télécharge la nouvelle version, se remplace et redémarre toute seule. On peut aussi vérifier à la main dans **⚙ Paramètres → Mises à jour** (et y désactiver la vérification automatique).
+Si vous l'avez accepté au premier lancement, AV1 Encod vérifie au démarrage s'il existe une nouvelle version et affiche un bandeau **Mettre à jour** : l'application télécharge la nouvelle version, se remplace et redémarre toute seule. On peut aussi vérifier à la main dans **⚙ Paramètres → Mises à jour** (et y activer ou désactiver la vérification automatique).
+
+Dès que les versions sont signées, une mise à jour qui ne serait pas signée par le même éditeur est **refusée**.
 
 <img src="docs/parametres.png" width="440" alt="Fenêtre des paramètres">
 
@@ -109,6 +121,33 @@ Au démarrage, AV1 Encod vérifie s'il existe une nouvelle version et affiche un
 **Où sont les journaux ?** `%APPDATA%\AV1Encod\logs` (un fichier par encodage), accessibles aussi depuis le bouton *Journal* ou *⚙ Paramètres*.
 
 **Un problème, une idée ?** [Ouvrez une *issue*](https://github.com/Araisite/AV1Encod/issues) en joignant le rapport (bouton *Copier le rapport*) et le journal.
+
+## Confidentialité
+
+This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+
+Concrètement, AV1 Encod ne contient aucune télémétrie ni statistique d'utilisation. Il n'accède à internet que dans ces cas, tous déclenchés par vous :
+
+| Quand | Vers | Ce qui est envoyé |
+|---|---|---|
+| Vérification des mises à jour (au démarrage si vous l'avez accepté, ou bouton *Rechercher une mise à jour*) | API GitHub (`api.github.com`) | une requête HTTP standard (adresse IP, version d'AV1 Encod dans l'en-tête *User-Agent*) |
+| Bouton *Mettre à jour* | GitHub (téléchargement de l'exe) | idem |
+| Installation des outils (si vous acceptez) | winget / dépôts de paquets Microsoft, puis sites de HandBrake et FFmpeg | requêtes de téléchargement de winget |
+
+Vos vidéos, leurs noms et les rapports d'analyse restent sur votre PC. Politiques des services tiers : [GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement), [Microsoft (winget)](https://privacy.microsoft.com/privacystatement).
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)
+
+> Demande en cours auprès de SignPath Foundation : les versions publiées avant son acceptation (dont la 1.0.0) ne sont pas signées. La page de chaque [version](https://github.com/Araisite/AV1Encod/releases) indique si son exe est signé.
+
+Rôles de l'équipe :
+
+- Committers and reviewers : [Araisite](https://github.com/Araisite)
+- Approvers : [Araisite](https://github.com/Araisite)
+
+Chaque exe signé est construit par [GitHub Actions](https://github.com/Araisite/AV1Encod/actions) à partir du code de ce dépôt, puis chaque signature est approuvée manuellement. Confidentialité : voir [ci-dessus](#confidentialité). Procédure détaillée : [docs/signpath.md](docs/signpath.md).
 
 ## Pour les développeurs
 
@@ -142,6 +181,8 @@ git push origin v1.1.0
 
 ## Licence
 
-AV1 Encod est distribué sous [licence MIT](LICENSE).
+Copyright © 2026 Araisite.
+
+AV1 Encod est un logiciel libre : vous pouvez le redistribuer et/ou le modifier selon les termes de la [GNU General Public License](LICENSE) publiée par la Free Software Foundation, version 3 ou (à votre choix) toute version ultérieure. Il est distribué dans l'espoir d'être utile, mais **sans aucune garantie**. La version 1.0.0 avait été publiée sous licence MIT.
 
 Il n'intègre aucun encodeur : il pilote des outils installés séparément, chacun sous sa propre licence — [HandBrake](https://handbrake.fr) (GPL-2.0), [FFmpeg](https://ffmpeg.org) (LGPL-2.1 / GPL), SVT-AV1 (BSD-3-Clause-Clear), x265 (GPL-2.0). Dolby Vision et Dolby Atmos sont des marques de Dolby Laboratories.

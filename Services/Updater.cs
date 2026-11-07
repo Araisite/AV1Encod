@@ -85,6 +85,15 @@ public static class Updater
             throw new InvalidDataException("Le fichier téléchargé est incomplet ou invalide.");
         }
 
+        // si la version installée est signée, la nouvelle doit l'être par le même éditeur
+        // (empêche l'installation d'un exe modifié ou provenant d'ailleurs)
+        if (Authenticode.TrustedSigner(exe) is { } signer && Authenticode.TrustedSigner(tmp) != signer)
+        {
+            File.Delete(tmp);
+            throw new InvalidDataException("la nouvelle version n'est pas signée par le même éditeur : mise à jour refusée par sécurité. " +
+                                           "Téléchargez-la depuis la page GitHub du projet.");
+        }
+
         var old = exe + ".old";
         if (File.Exists(old)) File.Delete(old);
         File.Move(exe, old);

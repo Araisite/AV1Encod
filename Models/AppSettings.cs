@@ -21,7 +21,8 @@ public sealed class AppSettings
     public bool Overwrite { get; set; }
     public string ExtraArgs { get; set; } = "";
     public string SrcDir { get; set; } = "";
-    public bool CheckUpdatesAtStartup { get; set; } = true;
+    /// <summary>null = pas encore demandé : la question est posée au premier lancement (aucun accès réseau sans accord).</summary>
+    public bool? CheckUpdatesAtStartup { get; set; }
 
     public static AppSettings Load()
     {

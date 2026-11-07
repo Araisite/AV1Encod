@@ -27,8 +27,11 @@ public partial class SettingsWindow : Window
         _main = main;
         _settings = settings;
         VersionText.Text = $"Version {Updater.CurrentVersion}";
-        CopyrightText.Text = (Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "© Araisite") + "   ·   Licence MIT";
-        AutoCheckChk.IsChecked = settings.CheckUpdatesAtStartup;
+        CopyrightText.Text = (Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "© Araisite") + "   ·   Licence GNU GPL v3";
+        var signer = Environment.ProcessPath is { } exe ? Authenticode.TrustedSigner(exe) : null;
+        SignatureText.Text = signer is null ? "Exécutable non signé"
+            : "Signé par " + (System.Text.RegularExpressions.Regex.Match(signer, "CN=([^,]+)") is { Success: true } m ? m.Groups[1].Value.Trim('"') : signer);
+        AutoCheckChk.IsChecked = settings.CheckUpdatesAtStartup == true;
         RefreshTools();
         if (knownRelease is not null) ShowRelease(knownRelease);
         _ready = true;
@@ -127,5 +130,7 @@ public partial class SettingsWindow : Window
     void OpenRepo_Click(object sender, RoutedEventArgs e) => Updater.OpenUrl(Updater.RepoUrl);
     void OpenReleases_Click(object sender, RoutedEventArgs e) => Updater.OpenUrl(Updater.ReleasesUrl);
     void OpenIssues_Click(object sender, RoutedEventArgs e) => Updater.OpenUrl(Updater.RepoUrl + "/issues");
+    void OpenLicense_Click(object sender, RoutedEventArgs e) => Updater.OpenUrl(Updater.RepoUrl + "/blob/main/LICENSE");
+    void OpenPrivacy_Click(object sender, RoutedEventArgs e) => Updater.OpenUrl(Updater.RepoUrl + "#confidentialité");
     void Close_Click(object sender, RoutedEventArgs e) => Close();
 }

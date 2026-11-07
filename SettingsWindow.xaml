@@ -35,11 +35,14 @@
                         <StackPanel>
                             <TextBlock Text="AV1 Encod" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
                             <TextBlock x:Name="VersionText" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0"/>
-                            <TextBlock x:Name="CopyrightText" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,6"/>
+                            <TextBlock x:Name="CopyrightText" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0"/>
+                            <TextBlock x:Name="SignatureText" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,6"/>
                             <WrapPanel>
-                                <Button Style="{StaticResource Link}" Content="Page du projet sur GitHub" Click="OpenRepo_Click" Margin="0,0,18,0"/>
-                                <Button Style="{StaticResource Link}" Content="Toutes les versions" Click="OpenReleases_Click" Margin="0,0,18,0"/>
-                                <Button Style="{StaticResource Link}" Content="Signaler un problème" Click="OpenIssues_Click"/>
+                                <Button Style="{StaticResource Link}" Content="Page du projet sur GitHub" Click="OpenRepo_Click" Margin="0,0,18,4"/>
+                                <Button Style="{StaticResource Link}" Content="Toutes les versions" Click="OpenReleases_Click" Margin="0,0,18,4"/>
+                                <Button Style="{StaticResource Link}" Content="Signaler un problème" Click="OpenIssues_Click" Margin="0,0,18,4"/>
+                                <Button Style="{StaticResource Link}" Content="Licence" Click="OpenLicense_Click" Margin="0,0,18,4"/>
+                                <Button Style="{StaticResource Link}" Content="Confidentialité" Click="OpenPrivacy_Click" Margin="0,0,0,4"/>
                             </WrapPanel>
                         </StackPanel>
                     </DockPanel>
@@ -103,8 +106,10 @@
                     <StackPanel>
                         <TextBlock Style="{StaticResource CardTitle}" Text="Licences"/>
                         <TextBlock TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="12" LineHeight="18">
-                            AV1 Encod est un logiciel libre distribué sous licence MIT.
-                            <LineBreak/>
+                            AV1 Encod est un logiciel libre : vous pouvez le redistribuer et le modifier selon les termes de la licence
+                            GNU General Public License version 3 ou ultérieure, publiée par la Free Software Foundation.
+                            Il est fourni SANS AUCUNE GARANTIE, ni explicite ni implicite (voir le lien « Licence » ci-dessus).
+                            <LineBreak/><LineBreak/>
                             Il n'intègre aucun encodeur : il utilise des outils installés séparément, chacun sous sa propre licence —
                             HandBrake (GPL-2.0), FFmpeg (LGPL-2.1 / GPL), SVT-AV1 (BSD-3-Clause-Clear), x265 (GPL-2.0).
                             Dolby Vision et Dolby Atmos sont des marques de Dolby Laboratories.

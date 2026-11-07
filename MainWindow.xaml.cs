@@ -83,7 +83,16 @@ public partial class MainWindow : Window
         _ = Task.Delay(TimeSpan.FromSeconds(8)).ContinueWith(_ => Updater.CleanupPreviousVersion());
         await InitializeToolsAsync();
         if (ToolInstaller.Missing().Count > 0) await OfferToolInstallAsync();
-        if (_settings.CheckUpdatesAtStartup) _ = CheckForUpdateAsync();
+        if (_settings.CheckUpdatesAtStartup is null)
+        {
+            _settings.CheckUpdatesAtStartup = MessageBox.Show(this,
+                "Voulez-vous qu'AV1 Encod vérifie à chaque démarrage si une nouvelle version est disponible ?\n\n" +
+                "Il interroge simplement la page des versions du projet sur GitHub ; aucune donnée personnelle n'est envoyée. " +
+                "Modifiable à tout moment dans ⚙ Paramètres → Mises à jour.",
+                AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+            _settings.Save();
+        }
+        if (_settings.CheckUpdatesAtStartup == true) _ = CheckForUpdateAsync();
         if (_initialPaths.Length > 0) await AddPathsAsync(_initialPaths);
     }
 
