@@ -35,6 +35,8 @@ public partial class SettingsWindow : Window
         AutoCheckChk.IsChecked = settings.CheckUpdatesAtStartup == true;
         MovieTemplateBox.Text = settings.MovieTemplate;
         SeriesTemplateBox.Text = settings.SeriesTemplate;
+        AnimeTemplateBox.Text = settings.AnimeTemplate;
+        OnlineChk.IsChecked = settings.OnlineLookup;
         TokensList.ItemsSource = OutputNaming.Tokens.Select(t => new { t.Token, t.Help }).ToList();
         (settings.NamingMode == "template" ? TemplateModeRb : ShortModeRb).IsChecked = true;
         TemplatePanel.IsEnabled = settings.NamingMode == "template";
@@ -61,7 +63,15 @@ public partial class SettingsWindow : Window
         if (!_ready) return;
         _settings.MovieTemplate = MovieTemplateBox.Text;
         _settings.SeriesTemplate = SeriesTemplateBox.Text;
+        _settings.AnimeTemplate = AnimeTemplateBox.Text;
         SaveNaming();
+    }
+
+    void Online_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        _settings.OnlineLookup = OnlineChk.IsChecked == true;
+        _settings.Save();
     }
 
     void SaveNaming()
@@ -87,19 +97,22 @@ public partial class SettingsWindow : Window
     {
         MovieTemplateBox.Text = OutputNaming.DefaultMovieTemplate;
         SeriesTemplateBox.Text = OutputNaming.DefaultSeriesTemplate;
+        AnimeTemplateBox.Text = OutputNaming.DefaultAnimeTemplate;
     }
 
     /// <summary>Aperçu sur un fichier analysé de la file (sinon sur un exemple fictif).</summary>
     void UpdateNamingPreview()
     {
-        if (_main.CurrentEncoder is not { } enc) { MoviePreview.Text = SeriesPreview.Text = ""; return; }
-        MoviePreview.Text = Preview(MovieTemplateBox.Text, _main.NamingSample(false), enc, false);
-        SeriesPreview.Text = Preview(SeriesTemplateBox.Text, _main.NamingSample(true), enc, true);
+        if (_main.CurrentEncoder is not { } enc) { MoviePreview.Text = SeriesPreview.Text = AnimePreview.Text = ""; return; }
+        MoviePreview.Text = Preview(MovieTemplateBox.Text, NamingKind.Movie, enc);
+        SeriesPreview.Text = Preview(SeriesTemplateBox.Text, NamingKind.Series, enc);
+        AnimePreview.Text = Preview(AnimeTemplateBox.Text, NamingKind.Anime, enc);
     }
 
-    string Preview(string template, QueueItem? sample, EncoderInfo enc, bool series)
+    string Preview(string template, NamingKind kind, EncoderInfo enc)
     {
-        var ctx = sample is not null ? _main.NamingContextFor(sample) : OutputNaming.Sample(enc, series);
+        var sample = _main.NamingSample(kind);
+        var ctx = sample is not null ? _main.NamingContextFor(sample) : OutputNaming.Sample(enc, kind);
         var name = OutputNaming.Render(template, ctx, out var unknown);
         var text = "→ " + (string.IsNullOrWhiteSpace(name) ? "(vide : le nom court sera utilisé)" : name + ".mkv");
         if (sample is null) text += "   (exemple)";

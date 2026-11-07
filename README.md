@@ -108,16 +108,35 @@ Par défaut, le nom est court : `Mon.Film.2026.AV1.mkv`. Dans **⚙ Paramètres 
 
 ```
 Films  : {Movie CleanTitle} {(Release Year)} {tmdb-{TmdbId}} - {edition-{Edition Tags}} {[MediaInfo AudioLanguages]}{[Custom Formats]}{[Quality Full]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoDynamicRangeType]}{[MediaInfo VideoCodec]}{-Release Group}
-Séries : {Series Title} - S{season:00}E{episode:00} {[MediaInfo AudioLanguages]}{[Custom Formats]}{[Quality Full]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoDynamicRangeType]}{[MediaInfo VideoCodec]}{-Release Group}
+Séries : {Series TitleYear} - S{season:00}E{episode:00} - {Episode CleanTitle:90} {[Custom Formats]}{[Quality Full]}{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{[MediaInfo VideoDynamicRangeType]}{[Mediainfo VideoCodec]}{-Release Group}
+Animes : {Series TitleYear} - S{season:00}E{episode:00} - {absolute:000} - {Episode CleanTitle:90} {[Custom Formats]}{[Quality Full]}{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{MediaInfo AudioLanguages}{[MediaInfo VideoDynamicRangeType]}[{Mediainfo VideoCodec }{MediaInfo VideoBitDepth}bit]{-Release Group}
 ```
 
-Comme dans Radarr, un bloc `{…}` disparaît (avec ses crochets, parenthèses ou tiret) quand l'information manque. D'où viennent les valeurs :
+Exemples :
+
+```
+Mon Film (2026) {tmdb-123456} [FR+EN][MULTi VFF][WEBDL-2160p][EAC3 Atmos 5.1][DV HDR10][AV1]-GROUPE.mkv
+The Last of Us (2023) - S02E03 - The Path [AMZN][WEBDL-1080p][EAC3 5.1][AV1]-FLUX.mkv
+Frieren - Beyond Journey's End (2023) - S01E12 - 012 - A Real Hero [1080p][AAC 5.1][JA+EN][AV1 10bit]-SubsPlease.mkv
+```
+
+Les jetons suivent les règles de Radarr / Sonarr et des [guides TRaSH](https://trash-guides.info/) :
+
+- un bloc `{…}` disparaît avec son texte autour (crochets, parenthèses, tiret) quand l'information manque, et `{tmdb-{TmdbId}}` donne `{tmdb-123}` ;
+- `{MediaInfo AudioLanguages}` met lui-même les crochets (`[FR+EN]`) et n'affiche rien si la seule langue est l'anglais ; `{MediaInfo AudioLanguagesAll}` l'affiche toujours ; filtres `:FR+EN` / `:-EN` ;
+- `{Episode CleanTitle:90}` coupe le titre à 90 caractères ; multi-épisodes en *Prefixed Range* (`S01E01-E03`, `001-003`) ;
+- variantes de titre : `{Series TitleYear}`, `{Series CleanTitleYear}`, `{Series TitleWithoutYear}`, `{Movie TitleThe}`… ; séparateur au choix (`{Series.CleanTitleYear}` → points) ;
+- deux-points remplacés « intelligemment » (`Titre: Sous-titre` → `Titre - Sous-titre`).
+
+Le modèle **anime** est utilisé pour les releases au format `[Groupe] Titre - 12 (1080p)` et pour les séries classées *Anime* sur TVmaze ; le modèle **séries** pour tout fichier avec `SxxEyy`.
 
 | Jetons | Source |
 |---|---|
-| Titre, année, `{TmdbId}`, édition, `{Quality Full}` (WEBDL / WEBRip / Bluray / Remux), `{Custom Formats}` (MULTi, VFF, VOSTFR…), groupe | nom du fichier source (et du dossier Radarr pour `{tmdb-…}`) |
+| Titre, année, `{TmdbId}`, édition, `{Quality Full}` (WEBDL / WEBRip / Bluray / Remux, Proper, v2), groupe, n° de saison / d'épisode / absolu, titre d'épisode s'il est dans le nom | nom du fichier source (scène, Sonarr ou fansub ; dossier Radarr pour `{tmdb-…}`) |
+| `{Custom Formats}` | balises que les custom formats repèrent d'habitude dans le nom : plateforme (AMZN, NF, ATVP…), langue (MULTi, VFF, VOSTFR…), HDLight… AV1 Encod ne peut pas lire les custom formats de votre Radarr |
 | Langues audio / sous-titres, codec et canaux audio, résolution | analyse de la source (pistes gardées) |
-| `{MediaInfo VideoCodec}`, `{MediaInfo VideoDynamicRangeType}` | fichier **encodé** : `AV1`, et `DV HDR10` seulement si l'encodeur conserve le Dolby Vision |
+| `{MediaInfo VideoCodec}`, `{MediaInfo VideoBitDepth}`, `{MediaInfo VideoDynamicRangeType}` | fichier **encodé** : `AV1`, `10`, et `DV HDR10` seulement si l'encodeur conserve le Dolby Vision |
+| Titre d'épisode, année de la série, numéro absolu, `{TvdbId}` | **TVmaze**, si vous cochez *Chercher les infos des séries sur TVmaze* (désactivé par défaut) |
 
 ### Historique
 
@@ -156,8 +175,9 @@ Concrètement, AV1 Encod ne contient aucune télémétrie ni statistique d'utili
 | Vérification des mises à jour (au démarrage si vous l'avez accepté, ou bouton *Rechercher une mise à jour*) | API GitHub (`api.github.com`) | une requête HTTP standard (adresse IP, version d'AV1 Encod dans l'en-tête *User-Agent*) |
 | Bouton *Mettre à jour* | GitHub (téléchargement de l'exe) | idem |
 | Installation des outils (si vous acceptez) | winget / dépôts de paquets Microsoft, puis sites de HandBrake et FFmpeg | requêtes de téléchargement de winget |
+| Recherche des infos de séries (option *Chercher les infos des séries sur TVmaze*, désactivée par défaut) | API TVmaze (`api.tvmaze.com`) | le **nom de la série** tiré du nom de fichier, une fois par série |
 
-Vos vidéos, leurs noms et les rapports d'analyse restent sur votre PC. Politiques des services tiers : [GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement), [Microsoft (winget)](https://privacy.microsoft.com/privacystatement).
+Vos vidéos, leurs noms et les rapports d'analyse restent sur votre PC. Politiques des services tiers : [GitHub](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement), [Microsoft (winget)](https://privacy.microsoft.com/privacystatement), [TVmaze](https://www.tvmaze.com/site/privacy).
 
 ## Code signing policy
 

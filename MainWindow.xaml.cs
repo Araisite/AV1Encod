@@ -379,28 +379,42 @@ public partial class MainWindow : Window
         var dir = Path.GetDirectoryName(q.SourcePath) ?? "";
         var baseName = Path.GetFileNameWithoutExtension(q.SourcePath);
         var name = _settings.NamingMode == "template"
-            ? OutputNaming.FromTemplates(_settings.MovieTemplate, _settings.SeriesTemplate, NamingFor(q.SourcePath, info))
+            ? OutputNaming.FromTemplates(_settings.MovieTemplate, _settings.SeriesTemplate, _settings.AnimeTemplate, NamingFor(q, info))
             : OutputNaming.ShortName(baseName, enc.Tag);
         if (string.IsNullOrWhiteSpace(name)) name = OutputNaming.ShortName(baseName, enc.Tag);
         var p = Path.Combine(dir, name + ".mkv");
         return string.Equals(p, q.SourcePath, StringComparison.OrdinalIgnoreCase) ? Path.Combine(dir, name + ".reencode.mkv") : p;
     }
 
-    NamingContext NamingFor(string sourcePath, SourceInfo? info) => new()
+    NamingContext NamingFor(QueueItem q, SourceInfo? info) => new()
     {
-        SourcePath = sourcePath, Source = info, Encoder = SelectedEncoder!, AllAudio = _allAudio, AllSubs = _allSubs,
+        SourcePath = q.SourcePath, Source = info, Encoder = SelectedEncoder!, AllAudio = _allAudio, AllSubs = _allSubs, Online = q.Online,
     };
+
+    /// <summary>
+    /// Recherche TVmaze facultative (⚙ Paramètres → Nommage) pour les épisodes : titre de l'épisode, année de la série,
+    /// numéro absolu. Ne bloque jamais l'analyse : sans réseau, le nom est construit sans ces infos.
+    /// </summary>
+    async Task LookupOnlineAsync(QueueItem item, Action<string> status, CancellationToken ct)
+    {
+        if (!_settings.OnlineLookup || _settings.NamingMode != "template" || item.Online is not null) return;
+        var rel = ReleaseName.Parse(Path.GetFileNameWithoutExtension(item.SourcePath), Path.GetFileName(Path.GetDirectoryName(item.SourcePath)));
+        if (!rel.IsEpisode) return;
+        status($"recherche de « {rel.Title} » sur TVmaze…");
+        try { item.Online = await TvMaze.FindAsync(rel.Title, rel.Year, ct, preferAnime: rel.AnimeStyle); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { }
+    }
 
     // ---- utilisé par ⚙ Paramètres → Nommage
 
     internal EncoderInfo? CurrentEncoder => SelectedEncoder;
 
-    /// <summary>Fichier analysé servant d'exemple pour l'aperçu du nommage (film ou épisode).</summary>
-    internal QueueItem? NamingSample(bool series) =>
-        new[] { Selected }.Concat(_queue).FirstOrDefault(q => q?.Source is not null &&
-            ReleaseName.Parse(Path.GetFileNameWithoutExtension(q.SourcePath)).IsEpisode == series);
+    /// <summary>Fichier analysé de la file servant d'exemple pour l'aperçu (film, série ou anime).</summary>
+    internal QueueItem? NamingSample(NamingKind kind) =>
+        new[] { Selected }.Concat(_queue).FirstOrDefault(q => q?.Source is not null && OutputNaming.KindOf(NamingFor(q, q.Source)) == kind);
 
-    internal NamingContext NamingContextFor(QueueItem q) => NamingFor(q.SourcePath, q.Source);
+    internal NamingContext NamingContextFor(QueueItem q) => NamingFor(q, q.Source);
 
     internal void OnNamingChanged()
     {
@@ -629,7 +643,11 @@ public partial class MainWindow : Window
                 SetStatus(label);
 
                 AnalysisResult res;
-                try { res = await SourceAnalyzer.AnalyzeAsync(BuildRequest(cur), rep, s => SetStatus($"{label} — {s}"), _cts.Token); }
+                try
+                {
+                    await LookupOnlineAsync(cur, s => SetStatus($"{label} — {s}"), _cts.Token);
+                    res = await SourceAnalyzer.AnalyzeAsync(BuildRequest(cur), rep, s => SetStatus($"{label} — {s}"), _cts.Token);
+                }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {

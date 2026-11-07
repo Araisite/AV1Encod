@@ -13,42 +13,65 @@ public sealed class NamingContext
     public required EncoderInfo Encoder { get; init; }
     public bool AllAudio { get; init; }
     public bool AllSubs { get; init; }
+    /// <summary>Infos TVmaze (titre d'épisode, année, numéro absolu…) si la recherche en ligne est activée.</summary>
+    public SeriesMeta? Online { get; init; }
 }
+
+public enum NamingKind { Movie, Series, Anime }
 
 public static class OutputNaming
 {
+    // Formats recommandés (guides TRaSH / Servarr), adaptés par l'utilisateur
     public const string DefaultMovieTemplate =
         "{Movie CleanTitle} {(Release Year)} {tmdb-{TmdbId}} - {edition-{Edition Tags}} {[MediaInfo AudioLanguages]}{[Custom Formats]}" +
         "{[Quality Full]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoDynamicRangeType]}{[MediaInfo VideoCodec]}{-Release Group}";
 
     public const string DefaultSeriesTemplate =
-        "{Series Title} - S{season:00}E{episode:00} {[MediaInfo AudioLanguages]}{[Custom Formats]}" +
-        "{[Quality Full]}{[MediaInfo AudioCodec}{ MediaInfo AudioChannels]}{[MediaInfo VideoDynamicRangeType]}{[MediaInfo VideoCodec]}{-Release Group}";
+        "{Series TitleYear} - S{season:00}E{episode:00} - {Episode CleanTitle:90} {[Custom Formats]}{[Quality Full]}" +
+        "{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{[MediaInfo VideoDynamicRangeType]}{[Mediainfo VideoCodec]}{-Release Group}";
+
+    public const string DefaultAnimeTemplate =
+        "{Series TitleYear} - S{season:00}E{episode:00} - {absolute:000} - {Episode CleanTitle:90} {[Custom Formats]}{[Quality Full]}" +
+        "{[Mediainfo AudioCodec}{ Mediainfo AudioChannels]}{MediaInfo AudioLanguages}{[MediaInfo VideoDynamicRangeType]}" +
+        "[{Mediainfo VideoCodec }{MediaInfo VideoBitDepth}bit]{-Release Group}";
 
     /// <summary>Jetons reconnus (comme dans Radarr / Sonarr), avec une description pour l'aide.</summary>
     public static readonly (string Token, string Help)[] Tokens =
     [
         ("{Movie Title}", "Titre du film"),
-        ("{Movie CleanTitle}", "Titre du film sans caractères spéciaux"),
-        ("{Release Year}", "Année"),
-        ("{TmdbId}", "Identifiant TMDb (lu dans le nom du fichier ou du dossier Radarr)"),
-        ("{ImdbId}", "Identifiant IMDb (tt…)"),
-        ("{Edition Tags}", "Extended, Director's Cut, IMAX…"),
+        ("{Movie CleanTitle}", "Titre sans apostrophes ni caractères spéciaux"),
+        ("{Movie TitleThe}", "« Film, The »"),
+        ("{Release Year}", "Année du film"),
+        ("{TmdbId}", "Identifiant TMDb (nom du fichier ou du dossier Radarr) — {tmdb-{TmdbId}}"),
+        ("{ImdbId}", "Identifiant IMDb (tt…) — {imdb-{ImdbId}}"),
+        ("{Edition Tags}", "Extended, Director's Cut, IMAX… — {edition-{Edition Tags}}"),
         ("{Series Title}", "Titre de la série"),
-        ("{season:00}", "Numéro de saison (01)"),
-        ("{episode:00}", "Numéro d'épisode (03)"),
-        ("{Quality Full}", "Source et résolution : WEBDL-2160p, Bluray-1080p, Remux-2160p…"),
-        ("{Quality Title}", "Idem sans Proper / Repack"),
-        ("{Custom Formats}", "Balises de langue de la source : MULTi, VFF, TRUEFRENCH, VOSTFR…"),
-        ("{MediaInfo AudioLanguages}", "Langues audio gardées : FR+EN"),
-        ("{MediaInfo SubtitleLanguages}", "Langues des sous-titres gardés"),
-        ("{MediaInfo AudioCodec}", "Codec de la 1re piste audio : EAC3 Atmos, TrueHD, DTS-HD MA…"),
-        ("{MediaInfo AudioChannels}", "Canaux de la 1re piste audio : 5.1, 7.1…"),
+        ("{Series TitleYear}", "« Série (2024) »"),
+        ("{Series CleanTitle}", "Titre de la série nettoyé"),
+        ("{Series CleanTitleYear}", "« Série 2024 »"),
+        ("{Series TitleWithoutYear}", "Titre sans l'année"),
+        ("{Series Year}", "Année de la série"),
+        ("{season:00}", "Saison : 01"),
+        ("{episode:00}", "Épisode : 03 (multi-épisodes : 01-E03)"),
+        ("{absolute:000}", "Numéro absolu (animes) : 012"),
+        ("{Episode Title}", "Titre de l'épisode"),
+        ("{Episode CleanTitle:90}", "Titre de l'épisode nettoyé, coupé à 90 caractères"),
+        ("{TvdbId}", "Identifiant TVDB (recherche TVmaze)"),
+        ("{TvMazeId}", "Identifiant TVmaze"),
+        ("{Quality Full}", "WEBDL-2160p, Bluray-1080p Proper, HDTV-720p v2…"),
+        ("{Quality Title}", "Idem sans Proper / Repack / v2"),
+        ("{Custom Formats}", "Plateforme (AMZN, NF…), langues (MULTi, VFF…), HDLight… lus dans le nom source"),
+        ("{MediaInfo AudioLanguages}", "[FR+EN] (rien si seulement anglais) ; filtre : {MediaInfo AudioLanguages:FR+EN}"),
+        ("{MediaInfo AudioLanguagesAll}", "[FR+EN], anglais compris"),
+        ("{MediaInfo SubtitleLanguages}", "[FR+EN] des sous-titres gardés"),
+        ("{MediaInfo AudioCodec}", "EAC3 Atmos, TrueHD Atmos, DTS-HD MA…"),
+        ("{MediaInfo AudioChannels}", "5.1, 7.1…"),
         ("{MediaInfo VideoCodec}", "Codec du fichier encodé : AV1, x265…"),
         ("{MediaInfo VideoBitDepth}", "10 ou 8"),
         ("{MediaInfo VideoDynamicRange}", "HDR (vide en SDR)"),
         ("{MediaInfo VideoDynamicRangeType}", "DV HDR10, HDR10, HDR10Plus, HLG… (ce qui est conservé)"),
-        ("{Release Group}", "Groupe de la release source"),
+        ("{Release Group}", "Groupe de la release source — {-Release Group}"),
+        ("{Release Hash}", "Somme de contrôle des releases d'anime [ABCD1234]"),
         ("{Original Title}", "Nom du fichier source, sans extension"),
     ];
 
@@ -86,17 +109,20 @@ public static class OutputNaming
 
     // ---------------------------------------------------------------- format Radarr / Sonarr
 
-    static readonly Regex TokenNameRx = new(@"[A-Za-z][A-Za-z ._]*[A-Za-z](?::0+)?", RegexOptions.Compiled);
-    static readonly char[] Invalid = Path.GetInvalidFileNameChars();
+    static readonly Regex TokenNameRx = new(@"[A-Za-z][A-Za-z ._]*[A-Za-z](?::[-+A-Za-z0-9,]+)?", RegexOptions.Compiled);
 
-    /// <summary>Applique le modèle film ou série selon que la source est un épisode (SxxEyy).</summary>
-    public static string FromTemplates(string movieTemplate, string seriesTemplate, NamingContext ctx)
+    public static NamingKind KindOf(NamingContext ctx)
     {
         var rel = Parse(ctx.SourcePath);
-        return Render(rel.IsEpisode ? seriesTemplate : movieTemplate, ctx, out _);
+        if (ctx.Online?.IsAnime == true || (rel.AnimeStyle && rel.Absolute is not null)) return NamingKind.Anime;
+        return rel.IsEpisode ? NamingKind.Series : NamingKind.Movie;
     }
 
-    /// <summary>Remplit le modèle. Un bloc « {…} » dont le jeton est vide disparaît, comme dans Radarr.</summary>
+    /// <summary>Applique le modèle film, série ou anime selon le fichier.</summary>
+    public static string FromTemplates(string movie, string series, string anime, NamingContext ctx) =>
+        Render(KindOf(ctx) switch { NamingKind.Anime => anime, NamingKind.Series => series, _ => movie }, ctx, out _);
+
+    /// <summary>Remplit le modèle. Un bloc « {…} » dont le jeton est vide disparaît avec son texte autour, comme dans Radarr / Sonarr.</summary>
     public static string Render(string template, NamingContext ctx, out List<string> unknownTokens)
     {
         unknownTokens = [];
@@ -129,7 +155,7 @@ public static class OutputNaming
         var inner = Regex.Match(content, @"\{([^{}]+)\}");
         if (inner.Success)
         {
-            // {tmdb-{TmdbId}} → « {tmdb-12345} » (accolades conservées, c'est la syntaxe Radarr)
+            // {tmdb-{TmdbId}} → « {tmdb-12345} » (accolades conservées, c'est la syntaxe Radarr) ; caché si vide
             var v = Value(inner.Groups[1].Value, rel, ctx, unknown);
             return v.Length == 0 ? "" : "{" + content[..inner.Index] + v + content[(inner.Index + inner.Length)..] + "}";
         }
@@ -141,42 +167,90 @@ public static class OutputNaming
 
     static string Value(string token, ReleaseName rel, NamingContext ctx, List<string> unknown)
     {
-        var fmt = token.Contains(':') ? token[(token.IndexOf(':') + 1)..] : null;
-        var name = token.Contains(':') ? token[..token.IndexOf(':')] : token;
-        // séparateur demandé par l'utilisateur : {Movie.CleanTitle} → mots séparés par des points
+        var colon = token.IndexOf(':');
+        var fmt = colon >= 0 ? token[(colon + 1)..] : null;
+        var name = colon >= 0 ? token[..colon] : token;
+        // séparateur choisi dans le jeton : {Series.CleanTitleYear} → mots séparés par des points
         var sep = name.Contains('.') ? "." : name.Contains('_') ? "_" : " ";
         var key = Regex.Replace(name, "[ ._]", "").ToLowerInvariant();
         var s = ctx.Source;
         var enc = ctx.Encoder;
+        var online = ctx.Online;
+        var ep = online?.Find(rel.Season, rel.Episode, rel.Absolute);
 
         string Words(string text) => sep == " " ? text : Regex.Replace(text.Trim(), @"\s+", sep);
-        string Num(int? n) => n is null ? "" : n.Value.ToString(new string('0', Math.Max(1, fmt?.Length ?? 1)), CultureInfo.InvariantCulture);
+        string Pad(int? n) => n is null ? "" : n.Value.ToString(new string('0', Math.Max(1, fmt?.Length ?? 1)), CultureInfo.InvariantCulture);
+        string Range(int? first, int? last, string prefix) => first is null ? "" : last is null || last == first ? Pad(first) : $"{Pad(first)}-{prefix}{Pad(last)}";
+
+        var seriesTitle = online?.Title ?? rel.Title;
+        var seriesYear = online?.Year ?? rel.Year;
+        string WithYear(string t, bool parens) =>
+            seriesYear is null || Regex.IsMatch(t, $@"\(?{seriesYear}\)?$") ? t : parens ? $"{t} ({seriesYear})" : $"{t} {seriesYear}";
+        var episodeTitle = ep is { Title.Length: > 0 } ? ep.Title : rel.EpisodeTitle ?? "";
 
         switch (key)
         {
-            case "movietitle" or "seriestitle" or "title": return Words(rel.Title);
-            case "moviecleantitle" or "seriescleantitle" or "cleantitle": return Words(CleanTitle(rel.Title));
-            case "releaseyear" or "year" or "movieyear" or "seriesyear": return rel.Year?.ToString(CultureInfo.InvariantCulture) ?? "";
+            // films
+            case "movietitle" or "title": return Words(rel.Title);
+            case "moviecleantitle" or "cleantitle": return Words(CleanTitle(rel.Title));
+            case "movietitlethe": return Words(TitleThe(rel.Title));
+            case "moviecleantitlethe": return Words(TitleThe(CleanTitle(rel.Title)));
+            case "movietitlefirstcharacter" or "seriestitlefirstcharacter": return FirstCharacter(key.StartsWith("series") ? seriesTitle : rel.Title);
+            case "releaseyear" or "year" or "movieyear": return rel.Year?.ToString(CultureInfo.InvariantCulture) ?? "";
             case "tmdbid": return rel.TmdbId ?? "";
-            case "imdbid": return rel.ImdbId ?? "";
+            case "imdbid": return rel.ImdbId ?? online?.ImdbId ?? "";
+            case "tvdbid": return rel.TvdbId ?? online?.TvdbId ?? "";
+            case "tvmazeid": return online?.TvMazeId.ToString(CultureInfo.InvariantCulture) ?? "";
             case "editiontags" or "edition": return string.Join(' ', rel.Editions);
-            case "season": return Num(rel.Season);
-            case "episode": return Num(rel.Episode);
+
+            // séries
+            case "seriestitle": return Words(seriesTitle);
+            case "seriescleantitle": return Words(CleanTitle(seriesTitle));
+            case "seriestitleyear": return Words(WithYear(seriesTitle, true));
+            case "seriescleantitleyear": return Words(WithYear(CleanTitle(seriesTitle), false));
+            case "seriestitlewithoutyear": return Words(StripYear(seriesTitle));
+            case "seriescleantitlewithoutyear": return Words(CleanTitle(StripYear(seriesTitle)));
+            case "seriestitlethe": return Words(TitleThe(seriesTitle));
+            case "seriescleantitlethe": return Words(TitleThe(CleanTitle(seriesTitle)));
+            case "seriestitletheyear": return Words(WithYear(TitleThe(seriesTitle), true));
+            case "seriescleantitletheyear": return Words(WithYear(TitleThe(CleanTitle(seriesTitle)), false));
+            case "seriesyear": return seriesYear?.ToString(CultureInfo.InvariantCulture) ?? "";
+            case "season": return Pad(rel.Season ?? (ep is { SeasonIsYear: false } ? ep.Season : null));
+            case "episode": return Range(rel.Episode ?? (ep is { SeasonIsYear: false } ? ep.Number : null), rel.EpisodeLast, "E");
+            case "absolute": return Range(rel.Absolute ?? ep?.Absolute, rel.AbsoluteLast, "");
+            case "episodetitle": return Words(Truncate(episodeTitle, fmt));
+            case "episodecleantitle": return Words(Truncate(CleanTitle(episodeTitle), fmt));
+
+            // qualité et formats
             case "qualityfull":
             case "qualitytitle":
                 var q = Quality(rel, s);
-                if (key == "qualityfull" && q.Length > 0 && (rel.Proper || rel.Repack)) q += rel.Proper ? " Proper" : " Repack";
+                if (key == "qualityfull" && q.Length > 0)
+                {
+                    if (rel.Proper || rel.Repack) q += rel.Repack ? " Repack" : " Proper";
+                    if (rel.Revision is > 1) q += $" v{rel.Revision}";
+                }
                 return q;
-            case "customformats": return string.Join(' ', rel.LanguageTags);
-            case "mediainfoaudiolanguages": return Languages(KeptAudio(ctx));
-            case "mediainfosubtitlelanguages": return Languages(KeptSubs(ctx));
-            case "mediainfoaudiocodec": return KeptAudio(ctx).FirstOrDefault() is { } a ? AudioCodec(a) : "";
+            case "customformats": return Filter(CustomFormats(rel), fmt, ' ');
+            case "customformat": return fmt is not null && CustomFormats(rel).FirstOrDefault(f => f.Equals(fmt, StringComparison.OrdinalIgnoreCase)) is { } cf ? cf : "";
+
+            // MediaInfo
+            case "mediainfoaudiolanguages": return Languages(KeptAudio(ctx), fmt, hideEnglishOnly: true);
+            case "mediainfoaudiolanguagesall": return Languages(KeptAudio(ctx), fmt, hideEnglishOnly: false);
+            case "mediainfosubtitlelanguages": return Languages(KeptSubs(ctx), fmt, hideEnglishOnly: true);
+            case "mediainfosubtitlelanguagesall": return Languages(KeptSubs(ctx), fmt, hideEnglishOnly: false);
+            case "mediainfoaudiocodec" or "mediainfoaudio": return KeptAudio(ctx).FirstOrDefault() is { } a ? AudioCodec(a) : "";
             case "mediainfoaudiochannels": return KeptAudio(ctx).FirstOrDefault() is { } a2 ? Channels(a2.Channels) : "";
-            case "mediainfovideocodec": return VideoCodec(enc);
+            case "mediainfovideocodec" or "mediainfovideo": return VideoCodec(enc);
             case "mediainfovideobitdepth": return s is null ? "" : enc.Bits.ToString(CultureInfo.InvariantCulture);
             case "mediainfovideodynamicrange": return DynamicRangeType(s, enc).Length > 0 ? "HDR" : "";
             case "mediainfovideodynamicrangetype": return DynamicRangeType(s, enc);
+            case "mediainfosimple": return Join(' ', VideoCodec(enc), KeptAudio(ctx).FirstOrDefault() is { } a3 ? AudioCodec(a3) : "");
+            case "mediainfofull":
+                return Join(' ', VideoCodec(enc), KeptAudio(ctx).FirstOrDefault() is { } a4 ? AudioCodec(a4) : "", Languages(KeptAudio(ctx), fmt, true));
+
             case "releasegroup": return rel.Group ?? "";
+            case "releasehash": return rel.Hash ?? "";
             case "originaltitle" or "originalfilename": return Path.GetFileNameWithoutExtension(ctx.SourcePath);
             default:
                 unknown.Add(token);
@@ -184,10 +258,35 @@ public static class OutputNaming
         }
     }
 
+    static string Join(char sep, params string[] parts) => string.Join(sep, parts.Where(p => p.Length > 0));
+
     static ReleaseName Parse(string sourcePath) =>
         ReleaseName.Parse(Path.GetFileNameWithoutExtension(sourcePath), Path.GetFileName(Path.GetDirectoryName(sourcePath)));
 
-    static string CleanTitle(string t) => Regex.Replace(Regex.Replace(t, @"[:;,!?'""&*/\\|<>]", ""), @"\s+", " ").Trim();
+    /// <summary>Comme Radarr / Sonarr : « & » → « and », apostrophes, deux-points, virgules… retirés.</summary>
+    static string CleanTitle(string t)
+    {
+        t = t.Replace("&", "and").Replace("/", " ").Replace("\\", " ");
+        t = Regex.Replace(t, @"(?<=\s)(,|<|>|/|\\|;|:|'|""|\||`|~|!|\?|@|\$|%|\^|\*|-|_|=){1}(?=\s)|('|:|\?|,)(?=(?:(?:s|m)\s)|\s|$)|(\(|\)|\[|\]|\{|\})", "");
+        t = t.Replace("'", "").Replace("’", "");
+        return Regex.Replace(t, @"\s+", " ").Trim();
+    }
+
+    static string TitleThe(string t) =>
+        Regex.Match(t, @"^(The|An|A)\s+(.+?)((?:\s*\([^)]+\))*)$", RegexOptions.IgnoreCase) is { Success: true } m
+            ? $"{m.Groups[2].Value}, {m.Groups[1].Value}{m.Groups[3].Value}" : t;
+
+    static string StripYear(string t) => Regex.Replace(t, @"\s*\((?:19|20)\d{2}\)\s*$", "");
+
+    static string FirstCharacter(string t) =>
+        TitleThe(CleanTitle(t)).FirstOrDefault(char.IsLetterOrDigit) is var c && c != default ? char.ToUpperInvariant(c).ToString() : "";
+
+    /// <summary>{Episode CleanTitle:90} : coupé à 90 caractères (points de suspension inclus).</summary>
+    static string Truncate(string text, string? fmt)
+    {
+        if (!int.TryParse(fmt, NumberStyles.Integer, CultureInfo.InvariantCulture, out var max) || max <= 3 || text.Length <= max) return text;
+        return text[..(max - 3)].TrimEnd() + "...";
+    }
 
     static string Quality(ReleaseName rel, SourceInfo? s)
     {
@@ -200,14 +299,53 @@ public static class OutputNaming
         width >= 3200 || height >= 2000 ? "2160p" : width >= 1800 || height >= 1000 ? "1080p" :
         width >= 1200 || height >= 700 ? "720p" : height >= 560 ? "576p" : "480p";
 
+    /// <summary>
+    /// Nous ne connaissons pas les « custom formats » de Radarr : on reprend ce qu'ils détectent d'habitude dans le nom
+    /// (plateforme de streaming, langues, HDLight…), dans cet ordre.
+    /// </summary>
+    static List<string> CustomFormats(ReleaseName rel)
+    {
+        var list = new List<string>();
+        if (rel.Streaming is not null) list.Add(rel.Streaming);
+        list.AddRange(rel.LanguageTags);
+        list.AddRange(rel.OtherTags);
+        return list;
+    }
+
+    /// <summary>{Custom Formats:A,B} garde A et B ; {Custom Formats:-A,B} les retire.</summary>
+    static string Filter(List<string> values, string? fmt, char sep)
+    {
+        if (!string.IsNullOrEmpty(fmt))
+        {
+            var exclude = fmt.StartsWith('-');
+            var names = fmt.TrimStart('-').Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            values = values.Where(v => names.Contains(v, StringComparer.OrdinalIgnoreCase) != exclude).ToList();
+        }
+        return string.Join(sep, values);
+    }
+
     static IEnumerable<TrackInfo> KeptAudio(NamingContext c) =>
         c.Source is null ? [] : c.Source.AudioTracks.Where(t => c.AllAudio || t.Selected);
 
     static IEnumerable<TrackInfo> KeptSubs(NamingContext c) =>
         c.Source is null ? [] : c.Source.SubtitleTracks.Where(t => c.AllSubs || t.Selected);
 
-    static string Languages(IEnumerable<TrackInfo> tracks) =>
-        string.Join('+', tracks.Select(t => Lang.Badge(t.Language)).Where(b => b != "?").Distinct());
+    /// <summary>
+    /// « [FR+EN] » comme Sonarr / Radarr (les crochets font partie du jeton). Sans « All », rien si la seule langue est
+    /// l'anglais. Filtre : « :FR+EN » ne garde que ces langues, « :-EN » retire l'anglais.
+    /// </summary>
+    static string Languages(IEnumerable<TrackInfo> tracks, string? fmt, bool hideEnglishOnly)
+    {
+        var langs = tracks.Select(t => Lang.Badge(t.Language)).Where(b => b != "?").Distinct().ToList();
+        if (!string.IsNullOrEmpty(fmt))
+        {
+            var exclude = fmt.StartsWith('-');
+            var wanted = fmt.TrimStart('-').TrimEnd('+').Split('+', StringSplitOptions.RemoveEmptyEntries).Select(x => x.ToUpperInvariant()).ToList();
+            langs = langs.Where(l => wanted.Contains(l) != exclude).ToList();
+        }
+        if (langs.Count == 0 || (hideEnglishOnly && langs is ["EN"])) return "";
+        return "[" + string.Join('+', langs) + "]";
+    }
 
     static string AudioCodec(TrackInfo a)
     {
@@ -244,7 +382,7 @@ public static class OutputNaming
         _ => e.Tag,
     };
 
-    /// <summary>Plage dynamique du fichier <b>encodé</b> : ce que l'encodeur conserve de la source.</summary>
+    /// <summary>Plage dynamique du fichier <b>encodé</b> : ce que l'encodeur conserve de la source (valeurs Radarr / Sonarr).</summary>
     static string DynamicRangeType(SourceInfo? s, EncoderInfo e)
     {
         if (s is null || e.Bits < 10) return "";
@@ -257,39 +395,54 @@ public static class OutputNaming
         {
             if (s.DvProfile == 5) return "DV";
             if (hdr10Plus) return "DV HDR10Plus";
-            return pq ? "DV HDR10" : hlg ? "DV HLG" : "DV";
+            return pq ? "DV HDR10" : hlg ? "DV HLG" : "DV SDR";
         }
         return hdr10Plus ? "HDR10Plus" : pq ? "HDR10" : hlg ? "HLG" : "";
     }
 
-    /// <summary>Nettoie le résultat : caractères interdits, espaces doublés, « - » orphelins.</summary>
+    /// <summary>
+    /// Nettoie le résultat : deux-points « intelligents » (« : » → « - »), caractères interdits retirés, crochets doublés
+    /// (« {[MediaInfo AudioLanguages]} » donne « [FR+EN] »), espaces doublés et « - » orphelins.
+    /// </summary>
     static string Clean(string name)
     {
-        var sb = new StringBuilder(name.Length);
-        foreach (var ch in name)
-            sb.Append(ch == ':' ? " -" : Array.IndexOf(Invalid, ch) >= 0 ? ' ' : ch);
-        var n = Regex.Replace(sb.ToString(), @"\s{2,}", " ");
-        n = Regex.Replace(n, @"\s+-\s+(?=\[|$)", " ");   // « Titre (2026) - [FR] » quand l'édition est vide
-        n = Regex.Replace(n, @"\s+-\s*-\s+", " - ");
+        var n = Regex.Replace(name, @":\s", " - ").Replace(":", "-");
+        n = Regex.Replace(n, @"[\\/<>?*|""]", "");
+        foreach (var ch in Path.GetInvalidFileNameChars()) n = n.Replace(ch.ToString(), "");
+        n = n.Replace("[[", "[").Replace("]]", "]");
+        n = Regex.Replace(n, @"\[\s*bit\]", "");          // « [{VideoCodec }{VideoBitDepth}bit] » sans infos
+        n = Regex.Replace(n, @"\[([^\[\]]*?[^\d\s\[])\s*bit\]", "[$1]");   // profondeur inconnue (avant l'analyse) : « [AV1 bit] » → « [AV1] »
+        n = Regex.Replace(n, @"\s+-\s+SE(?=\s+-\s+|\s|$)", "");            // anime sans saison ni recherche en ligne : pas de « SE » vide
         n = Regex.Replace(n, @"\(\s*\)|\[\s*\]", "");
+        n = Regex.Replace(n, @"\s{2,}", " ");
+        n = Regex.Replace(n, @"(\s+-)+\s+(?=\[|$)", " ");  // « Titre (2026) - [FR] » quand l'édition / le titre d'épisode manque
+        n = Regex.Replace(n, @"\s+-(\s+-)+\s+", " - ");      // « S01E03 -  - 003 » → « S01E03 - 003 »
         return n.Trim(' ', '.', '-');
     }
 
-    /// <summary>Exemple fictif (film 4K DV / épisode) pour l'aperçu des paramètres quand la file est vide.</summary>
-    public static NamingContext Sample(EncoderInfo encoder, bool series)
+    /// <summary>Exemple fictif pour l'aperçu des paramètres quand la file ne contient pas ce genre de fichier.</summary>
+    public static NamingContext Sample(EncoderInfo encoder, NamingKind kind)
     {
-        TrackInfo Audio(int i, string lang, string title, string profile) => new()
+        TrackInfo Audio(int i, string lang, string title, string profile, string codec = "eac3") => new()
         {
-            IsAudio = true, Index = i, Codec = "eac3", Language = lang, Title = title, Channels = "5.1(side)",
+            IsAudio = true, Index = i, Codec = codec, Language = lang, Title = title, Channels = "5.1(side)",
             Profile = profile, Supported = true, IsDefault = i == 1, Selected = true,
+        };
+        var path = kind switch
+        {
+            NamingKind.Series => @"C:\Séries\Ma Série\Saison 01\Ma.Serie.2024.S01E03.Le.Grand.Depart.MULTi.1080p.AMZN.WEB-DL.H264-GROUPE.mkv",
+            NamingKind.Anime => @"C:\Animes\Mon Anime\[Groupe] Mon Anime (2023) - 12v2 (1080p) [ABCD1234].mkv",
+            _ => @"C:\Films\Mon Film (2026) {tmdb-123456}\Mon.Film.2026.MULTi.VFF.2160p.WEB-DL.DV.HDR.H265-GROUPE.mkv",
         };
         var src = new SourceInfo
         {
-            Path = series ? @"C:\Séries\Ma Série\Saison 01\Ma.Serie.S01E03.MULTi.1080p.WEB.H264-GROUPE.mkv"
-                          : @"C:\Films\Mon Film (2026) {tmdb-123456}\Mon.Film.2026.MULTi.VFF.2160p.WEB-DL.DV.HDR.H265-GROUPE.mkv",
-            Width = series ? 1920 : 3840, Height = series ? 1080 : 2160,
-            Transfer = series ? "bt709" : "smpte2084", IsHdr = !series, HasDolbyVision = !series, DvProfile = series ? 0 : 8,
-            AudioTracks = [Audio(1, "fre", "Français", "Dolby Digital Plus + Dolby Atmos"), Audio(2, "eng", "English", "")],
+            Path = path,
+            Width = kind == NamingKind.Movie ? 3840 : 1920, Height = kind == NamingKind.Movie ? 2160 : 1080,
+            Transfer = kind == NamingKind.Movie ? "smpte2084" : "bt709", IsHdr = kind == NamingKind.Movie,
+            HasDolbyVision = kind == NamingKind.Movie, DvProfile = kind == NamingKind.Movie ? 8 : 0,
+            AudioTracks = kind == NamingKind.Anime
+                ? [Audio(1, "jpn", "Japonais", "", "aac"), Audio(2, "fre", "Français", "", "aac")]
+                : [Audio(1, "fre", "Français", "Dolby Digital Plus + Dolby Atmos"), Audio(2, "eng", "English", "")],
         };
         return new NamingContext { SourcePath = src.Path, Source = src, Encoder = encoder, AllAudio = true, AllSubs = true };
     }

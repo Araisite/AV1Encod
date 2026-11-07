@@ -88,6 +88,16 @@
                             <TextBlock Text="Séries (fichiers avec SxxEyy)" Style="{StaticResource FieldLabel}"/>
                             <TextBox x:Name="SeriesTemplateBox" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" TextChanged="Template_Changed" GotFocus="Template_GotFocus"/>
                             <TextBlock x:Name="SeriesPreview" FontSize="12" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" Margin="2,4,0,10"/>
+                            <TextBlock Text="Animes (releases « [Groupe] Titre - 12 », ou séries classées Anime sur TVmaze)" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="AnimeTemplateBox" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" TextChanged="Template_Changed" GotFocus="Template_GotFocus"/>
+                            <TextBlock x:Name="AnimePreview" FontSize="12" Foreground="{StaticResource TextBrush}" TextWrapping="Wrap" Margin="2,4,0,10"/>
+
+                            <CheckBox x:Name="OnlineChk" Margin="0,0,0,8" Checked="Online_Changed" Unchecked="Online_Changed" VerticalContentAlignment="Top">
+                                <TextBlock TextWrapping="Wrap">
+                                    <Run Text="Chercher les infos des séries sur TVmaze" FontWeight="SemiBold"/>
+                                    <Run Text=" — titre de l'épisode, année de la série, numéro absolu des animes, identifiants TVDB / IMDb. Gratuit et sans compte ; seul le nom de la série est envoyé à api.tvmaze.com." Foreground="{StaticResource MutedBrush}"/>
+                                </TextBlock>
+                            </CheckBox>
 
                             <Expander Header="Jetons disponibles (cliquer pour insérer)" Margin="0,2,0,8" Foreground="{StaticResource TextBrush}">
                                 <ItemsControl x:Name="TokensList" Margin="0,6,0,0">

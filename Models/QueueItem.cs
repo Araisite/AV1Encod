@@ -42,6 +42,8 @@ public sealed class QueueItem : INotifyPropertyChanged
     /// <summary>true tant que l'utilisateur n'a pas choisi lui-même la destination.</summary>
     public bool DestAuto { get; set; } = true;
     public string? LogPath { get; set; }
+    /// <summary>Infos TVmaze de la série (si la recherche en ligne est activée).</summary>
+    public SeriesMeta? Online { get; set; }
 
     string _dest = "";
     public string DestPath { get => _dest; set => Set(ref _dest, value); }

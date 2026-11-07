@@ -25,6 +25,9 @@ public sealed class AppSettings
     public string NamingMode { get; set; } = "short";
     public string MovieTemplate { get; set; } = Services.OutputNaming.DefaultMovieTemplate;
     public string SeriesTemplate { get; set; } = Services.OutputNaming.DefaultSeriesTemplate;
+    public string AnimeTemplate { get; set; } = Services.OutputNaming.DefaultAnimeTemplate;
+    /// <summary>Recherche facultative sur TVmaze (titre d'épisode, année, numéro absolu) : désactivée par défaut.</summary>
+    public bool OnlineLookup { get; set; }
     /// <summary>null = pas encore demandé : la question est posée au premier lancement (aucun accès réseau sans accord).</summary>
     public bool? CheckUpdatesAtStartup { get; set; }
 
