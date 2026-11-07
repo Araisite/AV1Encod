@@ -1,0 +1,33 @@
+# Publier une version :  git tag v1.2.0  &&  git push origin v1.2.0
+# → construit AV1Encod.exe (autonome) et crée la Release GitHub avec l'exe en pièce jointe.
+# Les applis déjà installées la proposent ensuite d'elles-mêmes (⚙ Paramètres → Mises à jour).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        shell: pwsh
+        run: ./build.ps1 -Version ('${{ github.ref_name }}'.TrimStart('v'))
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ github.ref_name }}' dist/AV1Encod.exe `
+            --title 'AV1 Encod ${{ github.ref_name }}' --generate-notes

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>AV1Encod</AssemblyName>
+    <RootNamespace>AV1Encod</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+
+    <!-- La version publiée vient du tag Git (v1.2.3) via la CI : dotnet publish -p:Version=1.2.3 -->
+    <Version>1.0.0</Version>
+    <Product>AV1 Encod</Product>
+    <Description>Interface WPF pour HandBrakeCLI : analyse des sources, file d'attente (films et séries), choix des pistes</Description>
+    <Authors>Araisite</Authors>
+    <Copyright>© 2026 Araisite</Copyright>
+    <RepositoryUrl>https://github.com/Araisite/AV1Encod</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+</Project>

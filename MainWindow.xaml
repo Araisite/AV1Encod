@@ -1,0 +1,254 @@
+<Window x:Class="AV1Encod.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AV1 Encod" Width="1180" Height="1000" MinWidth="960" MinHeight="760" Icon="Assets/app.ico"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource BgBrush}"
+        FontFamily="Segoe UI" FontSize="13" AllowDrop="True"
+        PreviewDragOver="Window_PreviewDragOver" PreviewDrop="Window_PreviewDrop"
+        Loaded="Window_Loaded" Closing="Window_Closing">
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo x:Name="Taskbar"/>
+    </Window.TaskbarItemInfo>
+
+    <Grid Margin="16,12,16,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="180"/>
+        </Grid.RowDefinitions>
+
+        <!-- En-tête + bandeau de mise à jour -->
+        <StackPanel Grid.Row="0">
+            <DockPanel Margin="2,0,2,10">
+                <Image DockPanel.Dock="Left" Source="Assets/app.ico" Width="30" Height="30" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <TextBlock DockPanel.Dock="Left" Text="AV1 Encod" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                <Button DockPanel.Dock="Right" Content="⚙  Paramètres" Padding="12,5" Margin="18,0,0,0" Click="Settings_Click"
+                        ToolTip="Mises à jour, outils externes, à propos"/>
+                <TextBlock x:Name="ToolsText" Text="Détection des outils…" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"
+                           TextAlignment="Right" TextTrimming="CharacterEllipsis" Margin="24,0,0,0"/>
+            </DockPanel>
+            <Border x:Name="UpdateBanner" Visibility="Collapsed" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1"
+                    CornerRadius="8" Padding="14,8" Margin="0,0,0,10">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button x:Name="BannerUpdateBtn" Content="Mettre à jour" Style="{StaticResource BtnPrimary}" Padding="12,4" Margin="0,0,6,0" Click="BannerUpdate_Click"/>
+                        <Button Content="Nouveautés" Padding="12,4" Margin="0,0,6,0" Click="BannerNotes_Click"/>
+                        <Button Content="Plus tard" Padding="12,4" Click="BannerLater_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="BannerText" VerticalAlignment="Center" Foreground="#1E3A8A" TextWrapping="Wrap"/>
+                </DockPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- File d'attente -->
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <DockPanel Margin="0,0,0,8">
+                    <StackPanel x:Name="QueueToolbar" DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="+  Fichiers…" Margin="0,0,6,0" Padding="12,5" Click="AddFiles_Click"/>
+                        <Button Content="+  Dossier (série)…" Margin="0,0,6,0" Padding="12,5" Click="AddFolder_Click"/>
+                        <Button Content="Retirer" Margin="0,0,6,0" Padding="12,5" Click="Remove_Click"/>
+                        <Button Content="Vider" Padding="12,5" Click="Clear_Click"/>
+                    </StackPanel>
+                    <TextBlock VerticalAlignment="Center">
+                        <Run Text="File d'attente" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+                        <Run x:Name="QueueCountRun" Text="" Foreground="{StaticResource MutedBrush}"/>
+                    </TextBlock>
+                </DockPanel>
+
+                <Grid Grid.Row="1">
+                    <ListView x:Name="QueueList" Height="200" SelectionMode="Extended" BorderBrush="{StaticResource BorderBrush}"
+                              SelectionChanged="QueueList_SelectionChanged" KeyDown="QueueList_KeyDown" MouseDoubleClick="QueueList_MouseDoubleClick">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="2,3"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Fichier" Width="310">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding FileName}" ToolTip="{Binding SourcePath}" TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Durée" Width="68" DisplayMemberBinding="{Binding DurationText}"/>
+                                <GridViewColumn Header="Taille" Width="80" DisplayMemberBinding="{Binding SizeText}"/>
+                                <GridViewColumn Header="Infos" Width="240">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Summary}" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="État" Width="150">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Progression" Width="104">
+                                    <GridViewColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ProgressBar Value="{Binding Progress}" Maximum="100" Width="88" Height="7" BorderThickness="0"
+                                                         Foreground="{StaticResource AccentBrush}" Background="#E5E7EB"/>
+                                        </DataTemplate>
+                                    </GridViewColumn.CellTemplate>
+                                </GridViewColumn>
+                                <GridViewColumn Header="Résultat" Width="120" DisplayMemberBinding="{Binding Result}"/>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                    <TextBlock x:Name="QueueEmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                               TextAlignment="Center" Foreground="{StaticResource MutedBrush}" FontSize="14"
+                               Text="Glissez ici un film, plusieurs fichiers ou le dossier d'une série&#x0a;(les sous-dossiers « Saison » sont parcourus, les samples ignorés)"/>
+                </Grid>
+
+                <Grid Grid.Row="2" x:Name="DestRow" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Destination" Style="{StaticResource RowLabel}" Margin="0,0,12,0"
+                               ToolTip="Destination du fichier sélectionné. Par défaut : à côté de la source, nom court + AV1."/>
+                    <TextBox Grid.Column="1" x:Name="DstBox" Margin="0,0,8,0" TextChanged="DstBox_TextChanged"/>
+                    <Button Grid.Column="2" Content="Parcourir…" Click="BrowseDst_Click"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Paramètres -->
+        <Border Grid.Row="2" x:Name="ParamsCard" Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Style="{StaticResource CardTitle}" Text="Encodage (appliqué à toute la file)"/>
+                <WrapPanel>
+                    <StackPanel Style="{StaticResource Field}">
+                        <TextBlock Text="Encodeur (détectés sur ce poste)" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="EncoderBox" Width="450" MaxDropDownHeight="600" SelectionChanged="EncoderBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Title}"/>
+                                        <TextBlock Text="{Binding Name, StringFormat='   {0}'}" Foreground="#9CA3AF" FontFamily="Consolas" FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource Field}">
+                        <TextBlock Text="Preset" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="PresetBox" Width="110" SelectionChanged="Option_Changed"/>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource Field}">
+                        <TextBlock x:Name="QLabel" Text="Qualité" Style="{StaticResource FieldLabel}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Slider x:Name="QSlider" Width="200" Minimum="0" Maximum="63" Value="28" IsSnapToTickEnabled="True" TickFrequency="1"
+                                    SmallChange="1" LargeChange="4" VerticalAlignment="Center" ValueChanged="QSlider_ValueChanged"/>
+                            <TextBox x:Name="QBox" Width="46" Margin="8,0,0,0" TextAlignment="Center"
+                                     Text="{Binding Value, ElementName=QSlider, StringFormat=F0}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource Field}">
+                        <TextBlock Text="Recadrage" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="CropBox" Width="180" SelectionChanged="Option_Changed">
+                            <ComboBoxItem Content="Aucun (0:0:0:0)"/>
+                            <ComboBoxItem Content="Auto (HandBrake)"/>
+                            <ComboBoxItem Content="Auto conservateur"/>
+                        </ComboBox>
+                    </StackPanel>
+                </WrapPanel>
+                <TextBlock x:Name="EncInfo" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="1,0,0,12" FontSize="12"/>
+
+                <!-- Pistes : résumé + bouton vers la fenêtre de choix -->
+                <Border Background="#F9FAFB" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="14,9" Margin="0,0,0,12">
+                    <DockPanel>
+                        <Button x:Name="ChooseTracksBtn" DockPanel.Dock="Right" Content="Choisir les pistes…" Padding="14,6" Click="ChooseTracks_Click"
+                                ToolTip="Choisir les pistes audio et sous-titres à garder (double-clic sur un fichier de la file : même effet)"/>
+                        <TextBlock DockPanel.Dock="Left" Text="Pistes" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" VerticalAlignment="Center" Margin="0,0,18,0"/>
+                        <WrapPanel VerticalAlignment="Center">
+                            <TextBlock Margin="0,2,28,2" VerticalAlignment="Center">
+                                <Run Text="Audio" Foreground="{StaticResource MutedBrush}"/>
+                                <Run Text="  "/>
+                                <Run x:Name="AudioSummaryRun" Foreground="{StaticResource TextBrush}" FontWeight="SemiBold"/>
+                            </TextBlock>
+                            <TextBlock Margin="0,2,0,2" VerticalAlignment="Center">
+                                <Run Text="Sous-titres" Foreground="{StaticResource MutedBrush}"/>
+                                <Run Text="  "/>
+                                <Run x:Name="SubsSummaryRun" Foreground="{StaticResource TextBrush}" FontWeight="SemiBold"/>
+                            </TextBlock>
+                        </WrapPanel>
+                    </DockPanel>
+                </Border>
+
+                <WrapPanel>
+                    <CheckBox x:Name="ChaptersChk" Content="Chapitres" Style="{StaticResource Chk}" Checked="Option_Changed" Unchecked="Option_Changed"/>
+                    <CheckBox x:Name="DeepChk" Content="Vérification approfondie (décodage)" Style="{StaticResource Chk}"/>
+                    <CheckBox x:Name="LowPrioChk" Content="Priorité basse" Style="{StaticResource Chk}"/>
+                    <CheckBox x:Name="OverwriteChk" Content="Écraser les fichiers déjà encodés" Style="{StaticResource Chk}"/>
+                </WrapPanel>
+                <DockPanel Margin="0,6,0,0">
+                    <TextBlock DockPanel.Dock="Left" Text="Arguments supplémentaires" Style="{StaticResource RowLabel}" Margin="0,0,12,0"/>
+                    <TextBox x:Name="ExtraBox" TextChanged="Option_Changed" FontFamily="Consolas"/>
+                </DockPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Commande -->
+        <Border Grid.Row="3" Style="{StaticResource Card}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource CardTitle}" Text="Commande HandBrakeCLI (fichier sélectionné)"/>
+                <Button DockPanel.Dock="Right" Content="Copier" VerticalAlignment="Top" Margin="8,0,0,0" Click="CopyCmd_Click"/>
+                <TextBox x:Name="CmdBox" IsReadOnly="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"
+                         MinHeight="40" MaxHeight="64" VerticalScrollBarVisibility="Auto" Background="#F9FAFB" VerticalContentAlignment="Top"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Actions + progression -->
+        <Grid Grid.Row="4" Margin="0,2,0,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <WrapPanel>
+                <Button x:Name="AnalyzeBtn" Content="Analyser la file" Margin="0,0,8,0" Click="Analyze_Click"/>
+                <Button x:Name="EncodeBtn" Content="▶  Lancer l'encodage" Style="{StaticResource BtnPrimary}" Margin="0,0,8,0" Click="Encode_Click"/>
+                <Button x:Name="CancelBtn" Content="■  Annuler" Style="{StaticResource BtnDanger}" Margin="0,0,24,0" IsEnabled="False" Click="Cancel_Click"/>
+                <Button Content="Dossier de sortie" Margin="0,0,8,0" Click="OpenOut_Click"/>
+                <Button Content="Journal" Click="OpenLog_Click"/>
+            </WrapPanel>
+            <ProgressBar Grid.Row="1" x:Name="Progress" Height="8" Maximum="100" Margin="0,12,0,6"
+                         Foreground="{StaticResource AccentBrush}" Background="#E5E7EB" BorderThickness="0"/>
+            <TextBlock Grid.Row="2" x:Name="StatusText" Text="Prêt." Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis"/>
+        </Grid>
+
+        <!-- Rapport / journal -->
+        <TabControl Grid.Row="5" x:Name="Tabs" Background="White" BorderBrush="{StaticResource BorderBrush}" Padding="0">
+            <TabItem x:Name="ReportTab" Header="  Rapport du fichier sélectionné  ">
+                <Grid>
+                    <ScrollViewer x:Name="ReportScroll" VerticalScrollBarVisibility="Auto" Padding="16,4,16,12">
+                        <ItemsControl x:Name="ReportList"/>
+                    </ScrollViewer>
+                    <Button Content="Copier le rapport" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,24,0"
+                            Padding="10,4" FontSize="12" Click="CopyReport_Click"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="  Journal HandBrake  ">
+                <TextBox x:Name="LogBox" IsReadOnly="True" FontFamily="Consolas" FontSize="12" BorderThickness="0" Padding="8"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
