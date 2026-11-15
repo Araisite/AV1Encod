@@ -22,6 +22,11 @@ public sealed class EncodeOptions
     public IReadOnlyList<int>? AudioTracks { get; init; }
     /// <summary>Sous-titres gardés si <see cref="AllSubs"/> est faux ; null ou vide = aucun.</summary>
     public IReadOnlyList<int>? SubtitleTracks { get; init; }
+    /// <summary>Hauteur maximale (1080, 720) : la vidéo n'est réduite que si elle est plus grande ; 0 = taille de la source.</summary>
+    public int MaxHeight { get; init; }
+
+    /// <summary>Largeur maximale associée (16:9) : 1080 → 1920, 720 → 1280.</summary>
+    public static int MaxWidthFor(int maxHeight) => maxHeight * 16 / 9;
 
     public List<string> BuildArgs()
     {
@@ -35,6 +40,9 @@ public sealed class EncodeOptions
             case 1: a.AddRange(["--crop-mode", "auto"]); break;
             case 2: a.AddRange(["--crop-mode", "conservative"]); break;
         }
+        // réduit seulement si la source dépasse, en gardant les proportions (Dolby Vision conservé, vérifié)
+        if (MaxHeight > 0)
+            a.AddRange(["--maxWidth", MaxWidthFor(MaxHeight).ToString(Fmt.Inv), "--maxHeight", MaxHeight.ToString(Fmt.Inv)]);
         if (AllAudio) a.AddRange(["--all-audio", "-E", "copy"]);
         else if (AudioTracks is null) a.AddRange(["-a", "1", "-E", "copy"]);
         else if (AudioTracks.Count == 0) a.AddRange(["-a", "none"]);
@@ -50,6 +58,17 @@ public sealed class EncodeOptions
         a.AddRange(SplitArgs(ExtraArgs));
         return a;
     }
+
+    /// <summary>
+    /// Mêmes réglages vidéo, mais vidéo seule (ni audio, ni sous-titres, ni chapitres) vers <paramref name="output"/> :
+    /// sert à l'estimation sur des extraits.
+    /// </summary>
+    public EncodeOptions VideoOnly(string output) => new()
+    {
+        Source = Source, Destination = output, Encoder = Encoder, Preset = Preset, Quality = Quality, CropMode = CropMode,
+        MaxHeight = MaxHeight, ExtraArgs = ExtraArgs, AllAudio = false, AudioTracks = [], AllSubs = false, SubtitleTracks = [],
+        Chapters = false,
+    };
 
     public static string Display(IEnumerable<string> args) =>
         string.Join(' ', args.Select(x => x.Length == 0 || x.Any(char.IsWhiteSpace) ? $"\"{x}\"" : x));

@@ -22,9 +22,10 @@ public sealed class HistoryRow(HistoryEntry e)
     public string EncoderText => Entry.Preset.Length > 0 ? $"{Entry.Encoder} · {Entry.Preset} · q{Entry.Quality}" : $"{Entry.Encoder} · q{Entry.Quality}";
     public string DurationText => Entry.Duration > 0 ? Fmt.Dur(Entry.Duration) : "";
     public string SourceSizeText => Fmt.Size(Entry.SourceSize);
-    public string OutputSizeText => Entry.OutputSize > 0 ? Fmt.Size(Entry.OutputSize) : "";
+    // pour un fichier ignoré, la taille « encodée » est celle estimée
+    public string OutputSizeText => Entry.OutputSize > 0 ? (Entry.Result == "skipped" ? "≈ " : "") + Fmt.Size(Entry.OutputSize) : "";
     public double Gain => Entry.OutputSize > 0 && Entry.SourceSize > 0 ? Entry.OutputSize / (double)Entry.SourceSize - 1 : 0;
-    public string GainText => Entry.OutputSize > 0 ? $"{Gain:+0%;-0%}" : "";
+    public string GainText => Entry.OutputSize > 0 ? (Entry.Result == "skipped" ? "≈ " : "") + $"{Gain:+0%;-0%}" : "";
     public string TimeText => Entry.EncodeSeconds > 0 ? Fmt.Dur(Entry.EncodeSeconds) : "";
     public string FpsText => Entry.AverageFps > 0 ? $"{Entry.AverageFps:N1}" : "";
     public string Tooltip => $"Source : {Entry.SourcePath}\nSortie : {Entry.OutputPath}\n{Entry.AudioTracks} piste(s) audio · {Entry.SubtitleTracks} sous-titre(s)";
@@ -36,6 +37,7 @@ public sealed class HistoryRow(HistoryEntry e)
         "suspect" => "⚠ Sortie suspecte",
         "failed" => "✖ Échec",
         "cancelled" => "Annulé",
+        "skipped" => "Ignoré (pas de gain)",
         _ => Entry.Result,
     };
 

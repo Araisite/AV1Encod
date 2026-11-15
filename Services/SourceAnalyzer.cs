@@ -43,6 +43,8 @@ public sealed class AnalysisRequest
     public bool DeepCheck { get; init; }
     /// <summary>false = une destination déjà présente est signalée comme « déjà encodée » (le fichier sera ignoré).</summary>
     public bool Overwrite { get; init; }
+    /// <summary>Hauteur maximale de sortie (0 = source) : la réduction prévue est indiquée dans le rapport.</summary>
+    public int MaxHeight { get; init; }
     /// <summary>
     /// Appelé une fois la source analysée pour (re)calculer la destination (le nom au format Radarr dépend des pistes, du HDR…).
     /// Sans lui, <see cref="DestPath"/> est utilisé tel quel.
@@ -142,6 +144,8 @@ public static class SourceAnalyzer
         var codec = (v.S("codec_name") ?? "?").ToUpperInvariant() + (v.S("profile") is { } prof ? $" ({prof})" : "");
         int width = v.I("width"), height = v.I("height");
         rep.Info($"{codec}   ·   {width}×{height}   ·   {fps:N3} i/s   ·   {pixFmt} ({bits}-bit)");
+        if (OutputNaming.OutputSize(width, height, req.MaxHeight) is var (ow, oh) && (ow, oh) != (width, height))
+            rep.Info($"Sera réduite en {ow}×{oh} (option « Résolution : {req.MaxHeight}p max »)");
         if (v.Bitrate() is > 0 and var vbr) rep.Info($"Débit vidéo : {vbr / 1e6:N1} Mb/s");
         var rfr = Fmt.Rate(v.S("r_frame_rate"));
         if (fps > 0 && rfr > 0 && Math.Abs(rfr - fps) / fps > 0.01)

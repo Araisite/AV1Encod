@@ -94,6 +94,8 @@ C'est tout.
    - **Encodeur** : `AV1 10-bit · SVT-AV1 (CPU)` par défaut, le meilleur rapport qualité / taille, qui garde le Dolby Vision. Les encodeurs de carte graphique (NVENC…) sont bien plus rapides mais un peu moins efficaces, et **perdent le Dolby Vision** (le HDR10 reste).
    - **Preset** : plus le nombre est petit, plus c'est lent et efficace. `6` est un bon compromis.
    - **Qualité (CRF)** : plus c'est bas, meilleure est l'image et plus le fichier est gros. `28` convient bien à la 4K, essayez `24`–`26` en 1080p.
+   - **Résolution** : *Garder la source*, *1080p max* ou *720p max*. Les vidéos plus grandes sont réduites en gardant les proportions, le HDR et le Dolby Vision. Idéal pour les vieux films vendus en « 4K » qui ne sont que des agrandissements bruités : encodés en 4K, ils peuvent même finir **plus gros** que la source ; en 1080p, ils perdent 75 à 90 % de leur taille sans différence visible.
+   - **Estimer le gain avant d'encoder** (activé, seuil 15 %) : AV1 Encod encode d'abord 3 extraits de 10 s avec les mêmes réglages (20 s à 1 min en 4K) pour prédire la taille finale. Si le gain prévu est sous le seuil, le fichier est ignoré dans une file d'attente, ou on vous demande quoi faire s'il est seul, avec un conseil (1080p max, CRF plus élevé). Testé sur deux films : estimation +26 % pour un réel +19 %, et −90 % pour un réel −90 %.
 3. **Pistes** : bouton **Choisir les pistes…** (ou double-clic sur un fichier de la file) pour ne garder que certaines langues ; cochez *Appliquer aussi aux autres fichiers* pour toute la saison.
 
    <img src="docs/pistes.png" width="720" alt="Fenêtre de choix des pistes">

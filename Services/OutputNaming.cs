@@ -15,6 +15,8 @@ public sealed class NamingContext
     public bool AllSubs { get; init; }
     /// <summary>Infos TVmaze (titre d'épisode, année, numéro absolu…) si la recherche en ligne est activée.</summary>
     public SeriesMeta? Online { get; init; }
+    /// <summary>Hauteur maximale de sortie (0 = source) : la résolution du nom est celle du fichier encodé.</summary>
+    public int MaxHeight { get; init; }
 }
 
 public enum NamingKind { Movie, Series, Anime }
@@ -224,7 +226,7 @@ public static class OutputNaming
             // qualité et formats
             case "qualityfull":
             case "qualitytitle":
-                var q = Quality(rel, s);
+                var q = Quality(rel, s, ctx.MaxHeight);
                 if (key == "qualityfull" && q.Length > 0)
                 {
                     if (rel.Proper || rel.Repack) q += rel.Repack ? " Repack" : " Proper";
@@ -288,12 +290,23 @@ public static class OutputNaming
         return text[..(max - 3)].TrimEnd() + "...";
     }
 
-    static string Quality(ReleaseName rel, SourceInfo? s)
+    static string Quality(ReleaseName rel, SourceInfo? s, int maxHeight)
     {
-        var res = s is { Width: > 0 } ? ResolutionLabel(s.Width, s.Height) : rel.Resolution ?? "";
+        var res = s is { Width: > 0 } ? ResolutionLabel(OutputSize(s.Width, s.Height, maxHeight)) : rel.Resolution ?? "";
+        if (s is null && maxHeight > 0 && res.Length > 0 && int.TryParse(res.TrimEnd('p'), out var r) && r > maxHeight) res = $"{maxHeight}p";
         if (rel.Source is null) return res;
         return rel.Source == "DVD" ? "DVD" : res.Length > 0 ? $"{rel.Source}-{res}" : rel.Source;
     }
+
+    /// <summary>Taille de sortie après réduction éventuelle (proportions gardées, jamais agrandie).</summary>
+    public static (int Width, int Height) OutputSize(int width, int height, int maxHeight)
+    {
+        if (maxHeight <= 0 || width <= 0 || height <= 0) return (width, height);
+        var scale = Math.Min(1.0, Math.Min(EncodeOptions.MaxWidthFor(maxHeight) / (double)width, maxHeight / (double)height));
+        return ((int)Math.Round(width * scale / 2) * 2, (int)Math.Round(height * scale / 2) * 2);
+    }
+
+    static string ResolutionLabel((int Width, int Height) size) => ResolutionLabel(size.Width, size.Height);
 
     public static string ResolutionLabel(int width, int height) =>
         width >= 3200 || height >= 2000 ? "2160p" : width >= 1800 || height >= 1000 ? "1080p" :

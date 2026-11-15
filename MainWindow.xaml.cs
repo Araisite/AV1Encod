@@ -68,6 +68,10 @@ public partial class MainWindow : Window
         DeepChk.IsChecked = _settings.DeepCheck;
         LowPrioChk.IsChecked = _settings.LowPriority;
         OverwriteChk.IsChecked = _settings.Overwrite;
+        ResolutionBox.SelectedIndex = _settings.MaxHeight switch { 1080 => 1, 720 => 2, _ => 0 };
+        EstimateChk.IsChecked = _settings.EstimateGain;
+        MinGainBox.Text = _settings.MinGainPercent.ToString(Fmt.Inv);
+        MinGainBox.IsEnabled = _settings.EstimateGain;
         ExtraBox.Text = _settings.ExtraArgs;
         _ready = true;
         UpdateQueueHeader();
@@ -389,6 +393,7 @@ public partial class MainWindow : Window
     NamingContext NamingFor(QueueItem q, SourceInfo? info) => new()
     {
         SourcePath = q.SourcePath, Source = info, Encoder = SelectedEncoder!, AllAudio = _allAudio, AllSubs = _allSubs, Online = q.Online,
+        MaxHeight = OutputMaxHeight,
     };
 
     /// <summary>
@@ -526,6 +531,7 @@ public partial class MainWindow : Window
             KeepDefaultSub = _keepDefaultSub,
             Chapters = ChaptersChk.IsChecked == true,
             ExtraArgs = ExtraBox.Text,
+            MaxHeight = OutputMaxHeight,
             AudioTracks = src?.AudioTracks.Where(t => t.Selected).Select(t => t.Index).ToList(),
             SubtitleTracks = src?.SubtitleTracks.Where(t => t.Selected).Select(t => t.Index).ToList(),
             DefaultSubIndex = TrackSelection.DefaultSubPosition(keptSubs),
@@ -540,6 +546,20 @@ public partial class MainWindow : Window
     }
 
     void Option_Changed(object sender, RoutedEventArgs e) => UpdatePreview();
+
+    /// <summary>0 = résolution de la source ; 1080 ou 720 = réduction des vidéos plus grandes.</summary>
+    int OutputMaxHeight => ResolutionBox.SelectedIndex switch { 1 => 1080, 2 => 720, _ => 0 };
+
+    void Resolution_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready) return;
+        AssignDestinations(); // « WEBDL-2160p » devient « WEBDL-1080p » dans les noms au format Radarr
+        UpdatePreview();
+    }
+
+    void Estimate_Changed(object sender, RoutedEventArgs e) => MinGainBox.IsEnabled = EstimateChk.IsChecked == true;
+
+    int MinGainPercent => int.TryParse(MinGainBox.Text.Trim().TrimEnd('%'), System.Globalization.NumberStyles.Integer, Fmt.Inv, out var v) ? Math.Clamp(v, 0, 95) : 15;
     void QSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) => UpdatePreview();
 
     void DstBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -599,6 +619,7 @@ public partial class MainWindow : Window
         Chapters = ChaptersChk.IsChecked == true,
         DeepCheck = DeepChk.IsChecked == true,
         Overwrite = OverwriteChk.IsChecked == true,
+        MaxHeight = OutputMaxHeight,
         SelectTracks = (audio, subs) => SelectTracksFor(item, audio, subs),
         // le nom au format Radarr dépend de l'analyse (langues, HDR…) : on le recalcule avant de vérifier la destination
         ResolveDestination = info =>
@@ -772,7 +793,7 @@ public partial class MainWindow : Window
         Progress.Value = 0;
         Native.KeepAwake();
         _batchWatch.Restart();
-        int done = 0, failed = 0;
+        int done = 0, failed = 0, noGain = 0;
         long saved = 0;
         var cancelled = false;
         try
@@ -785,6 +806,12 @@ public partial class MainWindow : Window
                 _currentTotal = run.Count;
                 QueueList.SelectedItem = item;
                 QueueList.ScrollIntoView(item);
+                if (EstimateChk.IsChecked == true && !await PassesEstimateAsync(item, interactive: run.Count == 1, _cts.Token))
+                {
+                    if (_cts.IsCancellationRequested) { cancelled = true; break; }
+                    noGain++;
+                    continue;
+                }
                 var outcome = await EncodeItemAsync(item, _cts.Token);
                 if (outcome == QueueStatus.Done)
                 {
@@ -814,12 +841,80 @@ public partial class MainWindow : Window
                             : $"Terminé en {Fmt.Dur(_batchWatch.Elapsed.TotalSeconds)}";
         msg += $" : {done} encodé(s)";
         if (failed > 0) msg += $", {failed} en échec";
+        if (noGain > 0) msg += $", {noGain} ignoré(s) faute de gain";
         if (remaining > 0) msg += $", {remaining} non traité(s)";
         if (saved > 0) msg += $"   ·   {Fmt.Size(saved)} économisés";
         SetIdle(msg + ".");
         Progress.Value = cancelled ? 0 : 100;
         Taskbar.ProgressState = failed > 0 ? TaskbarItemProgressState.Error : TaskbarItemProgressState.None;
         if (!cancelled) (failed > 0 ? System.Media.SystemSounds.Hand : System.Media.SystemSounds.Asterisk).Play();
+    }
+
+    /// <summary>
+    /// Encode 3 extraits avec les réglages choisis pour prédire la taille finale. Si le gain prévu est sous le seuil,
+    /// le fichier est ignoré (file d'attente) ou la question est posée (fichier seul).
+    /// </summary>
+    /// <returns>true pour encoder, false pour ignorer (ou annulation)</returns>
+    async Task<bool> PassesEstimateAsync(QueueItem item, bool interactive, CancellationToken ct)
+    {
+        if (_hb is null || _ffprobe is null || item.Source is not { } src) return true;
+        var opts = BuildOptions(item);
+        item.SetStatus(QueueStatus.Encoding, "Estimation…");
+        Taskbar.ProgressState = TaskbarItemProgressState.Indeterminate;
+        GainEstimate? est;
+        try
+        {
+            est = await GainEstimator.EstimateAsync(_hb.Path, _ffprobe, opts, src, s => SetStatus($"{ItemPrefix()}{s}"), ct);
+        }
+        catch (OperationCanceledException)
+        {
+            item.SetStatus(QueueStatus.Cancelled, "Annulé");
+            return false;
+        }
+        catch
+        {
+            est = null;
+        }
+
+        var rep = new Reporter(item.Report);
+        rep.Head("Estimation avant encodage");
+        if (est is null)
+        {
+            rep.Info("Estimation impossible (fichier trop court ou extraits illisibles) : encodage lancé sans estimation");
+            return true;
+        }
+        var min = MinGainPercent / 100.0;
+        var text = $"Taille estimée : {Fmt.Size(est.PredictedSize)} au lieu de {Fmt.Size(src.Size)} ({-est.Gain:+0%;-0%})   ·   " +
+                   $"vidéo ×{est.VideoRatio:N2} sur {est.Samples} extraits, en {Fmt.Dur(est.Elapsed.TotalSeconds)}";
+        item.Result = $"≈ {-est.Gain:+0%;-0%}";
+        if (est.Gain >= min)
+        {
+            rep.Ok(text);
+            return true;
+        }
+
+        var advice = OutputNaming.OutputSize(src.Width, src.Height, 1080).Height < src.Height && OutputMaxHeight == 0
+            ? "essayez « Résolution : 1080p max » (idéal pour les vieux films en « faux 4K ») ou une qualité CRF plus élevée"
+            : "essayez une qualité CRF plus élevée, ou gardez la source";
+        rep.Warn($"{text} — gain inférieur au minimum de {MinGainPercent} %");
+        if (interactive)
+        {
+            var answer = MessageBox.Show(this,
+                $"{item.FileName}\n\nTaille estimée : {Fmt.Size(est.PredictedSize)} pour une source de {Fmt.Size(src.Size)} ({-est.Gain:+0%;-0%}).\n" +
+                $"C'est moins que le gain minimum de {MinGainPercent} % : la source est probablement déjà très compressée, ou bruitée.\n\n" +
+                $"Conseil : {advice}.\n\nEncoder quand même ?",
+                AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (answer == MessageBoxResult.Yes) { rep.Info("Encodage lancé malgré tout, à votre demande"); return true; }
+        }
+        rep.Info($"Fichier ignoré — {advice}");
+        item.SetStatus(QueueStatus.Skipped, $"Ignoré : gain ≈ {est.Gain:P0}");
+        History.Append(new HistoryEntry
+        {
+            Date = DateTime.Now, Result = "skipped", SourcePath = item.SourcePath, OutputPath = item.DestPath, Encoder = opts.Encoder?.Name ?? "",
+            Preset = opts.Preset ?? "", Quality = opts.Quality, SourceSize = src.Size, OutputSize = est.PredictedSize, Duration = src.Duration,
+            EncodeSeconds = est.Elapsed.TotalSeconds, SourceSummary = src.Summary,
+        });
+        return false;
     }
 
     /// <returns>Done, Failed ou Cancelled</returns>
@@ -1219,6 +1314,9 @@ public partial class MainWindow : Window
         _settings.DeepCheck = DeepChk.IsChecked == true;
         _settings.LowPriority = LowPrioChk.IsChecked == true;
         _settings.Overwrite = OverwriteChk.IsChecked == true;
+        _settings.MaxHeight = OutputMaxHeight;
+        _settings.EstimateGain = EstimateChk.IsChecked == true;
+        _settings.MinGainPercent = MinGainPercent;
         _settings.ExtraArgs = ExtraBox.Text;
         _settings.Save();
     }

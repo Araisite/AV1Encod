@@ -170,6 +170,15 @@
                             <ComboBoxItem Content="Auto conservateur"/>
                         </ComboBox>
                     </StackPanel>
+                    <StackPanel Style="{StaticResource Field}">
+                        <TextBlock Text="Résolution" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="ResolutionBox" Width="170" SelectionChanged="Resolution_Changed"
+                                  ToolTip="Réduit seulement les vidéos plus grandes, en gardant les proportions, le HDR et le Dolby Vision. Idéal pour les « faux 4K » (vieux films remis à l'échelle) : fichier jusqu'à 10× plus petit sans perte visible.">
+                            <ComboBoxItem Content="Garder la source"/>
+                            <ComboBoxItem Content="1080p max"/>
+                            <ComboBoxItem Content="720p max"/>
+                        </ComboBox>
+                    </StackPanel>
                 </WrapPanel>
                 <TextBlock x:Name="EncInfo" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="1,0,0,12" FontSize="12"/>
 
@@ -199,6 +208,13 @@
                     <CheckBox x:Name="DeepChk" Content="Vérification approfondie (décodage)" Style="{StaticResource Chk}"/>
                     <CheckBox x:Name="LowPrioChk" Content="Priorité basse" Style="{StaticResource Chk}"/>
                     <CheckBox x:Name="OverwriteChk" Content="Écraser les fichiers déjà encodés" Style="{StaticResource Chk}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,6"
+                                ToolTip="Avant chaque encodage, 3 extraits de 10 s sont encodés avec les mêmes réglages (≈ 30 s à 1 min en 4K) pour prédire la taille finale. Si le gain prévu est trop faible, le fichier est ignoré au lieu de perdre une heure à produire un fichier aussi gros, voire plus gros, que la source.">
+                        <CheckBox x:Name="EstimateChk" Content="Estimer le gain avant d'encoder ; ignorer si moins de" VerticalContentAlignment="Center"
+                                  Checked="Estimate_Changed" Unchecked="Estimate_Changed"/>
+                        <TextBox x:Name="MinGainBox" Width="38" Margin="6,0,4,0" Padding="2,1" TextAlignment="Center" VerticalAlignment="Center"/>
+                        <TextBlock Text="%" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </WrapPanel>
                 <DockPanel Margin="0,6,0,0">
                     <TextBlock DockPanel.Dock="Left" Text="Arguments supplémentaires" Style="{StaticResource RowLabel}" Margin="0,0,12,0"/>

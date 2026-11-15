@@ -19,6 +19,12 @@ public sealed class AppSettings
     public bool DeepCheck { get; set; } = true;
     public bool LowPriority { get; set; } = true;
     public bool Overwrite { get; set; }
+    /// <summary>Hauteur maximale de sortie : 0 = résolution de la source, 1080, 720.</summary>
+    public int MaxHeight { get; set; }
+    /// <summary>Test sur quelques extraits avant d'encoder, pour ne pas encoder un fichier qui ne rapetisserait pas.</summary>
+    public bool EstimateGain { get; set; } = true;
+    /// <summary>Gain estimé minimum (en %) pour lancer l'encodage.</summary>
+    public int MinGainPercent { get; set; } = 15;
     public string ExtraArgs { get; set; } = "";
     public string SrcDir { get; set; } = "";
     /// <summary>« short » = Titre.Année.AV1 ; « template » = formats Radarr / Sonarr ci-dessous.</summary>
